@@ -28,8 +28,10 @@ class Autorizacion extends Model
         'titulo',
         'detalle',
         'fecha_limite',
+        'vigencia_hasta',
         'concedida',
         'fecha_respuesta',
+        'revocada_en',
         'comentario',
     ];
 
@@ -37,7 +39,9 @@ class Autorizacion extends Model
     {
         return [
             'fecha_limite' => 'date',
+            'vigencia_hasta' => 'date',
             'fecha_respuesta' => 'datetime',
+            'revocada_en' => 'datetime',
             'concedida' => 'boolean',
         ];
     }
@@ -72,14 +76,74 @@ class Autorizacion extends Model
     }
 
     /**
-     * ¿Todavía se puede contestar o cambiar la respuesta?
+     * ¿Todavía se puede contestar (dar la respuesta inicial)?
      *
-     * Cambiarla es un derecho —un consentimiento de uso de imagen se revoca—,
-     * pero no después del plazo: nadie des-autoriza la excursión el lunes
-     * siguiente.
+     * El plazo de RESPUESTA: nadie contesta la excursión el lunes siguiente.
+     * RETIRAR lo ya concedido es otra cosa —{@see puedeRevocar}— y no se ata a
+     * este plazo, porque revocar un consentimiento vigente es un derecho.
      */
     public function admiteRespuesta(): bool
     {
         return ! $this->estaVencida();
+    }
+
+    /**
+     * ¿La autorización está EN VIGOR ahora mismo? Es lo que «cuenta».
+     *
+     * Concedida, no revocada y dentro de su vigencia. `vigencia_hasta` en NULL
+     * es un consentimiento permanente; con fecha, deja de valer al pasarla —una
+     * salida vale sólo su día—. Es la definición ÚNICA de «permiso activo»: el
+     * conteo del administrador y el estado del portal preguntan aquí.
+     */
+    public function estaEnVigor(): bool
+    {
+        return $this->concedida === true
+            && $this->revocada_en === null
+            && ($this->vigencia_hasta === null || $this->vigencia_hasta->gte(now()->startOfDay()));
+    }
+
+    /** Fue concedida y su vigencia ya pasó: dejó de contar sin que nadie la tocara. */
+    public function caducada(): bool
+    {
+        return $this->concedida === true
+            && $this->revocada_en === null
+            && $this->vigencia_hasta !== null
+            && $this->vigencia_hasta->lt(now()->startOfDay());
+    }
+
+    /** La familia la RETIRÓ. Distinto de negarla: negar es no haberla concedido. */
+    public function revocada(): bool
+    {
+        return $this->revocada_en !== null;
+    }
+
+    /**
+     * ¿Se puede revocar? Sólo lo que está en vigor: no se retira algo que ya
+     * caducó, ni una negada, ni una pendiente. No depende del plazo de respuesta.
+     */
+    public function puedeRevocar(): bool
+    {
+        return $this->estaEnVigor();
+    }
+
+    /**
+     * El estado en una palabra, para la pantalla. Deriva de las mismas columnas
+     * que `estaEnVigor`, así que nunca dice «en vigor» sobre lo que ya no cuenta.
+     */
+    public function estado(): string
+    {
+        if ($this->revocada()) {
+            return 'revocada';
+        }
+
+        if ($this->concedida === true) {
+            return $this->caducada() ? 'caducada' : 'en_vigor';
+        }
+
+        if ($this->concedida === false) {
+            return 'negada';
+        }
+
+        return $this->estaVencida() ? 'sin_responder' : 'pendiente';
     }
 }

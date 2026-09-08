@@ -47,13 +47,19 @@ class AutorizacionController extends Controller
          * autorización», no cada respuesta suelta.
          */
         $emisiones = Autorizacion::query()
-            ->select('titulo', 'tipo_autorizacion_id', 'fecha_limite')
+            ->select('titulo', 'tipo_autorizacion_id', 'fecha_limite', 'vigencia_hasta')
             ->selectRaw('MIN(created_at) as emitida_en')
             ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(concedida = 1) as concedidas')
+            // «En vigor» y no «concedidas» a secas: una concedida que ya caducó
+            // o que se revocó dejó de contar, y sumarla ocultaría que el permiso
+            // ya no vale. Los tres estados salen de las mismas columnas que
+            // `estaEnVigor`, así que la pantalla no puede contradecir al modelo.
+            ->selectRaw('SUM(concedida = 1 AND revocada_en IS NULL AND (vigencia_hasta IS NULL OR vigencia_hasta >= CURDATE())) as en_vigor')
+            ->selectRaw('SUM(concedida = 1 AND revocada_en IS NULL AND vigencia_hasta IS NOT NULL AND vigencia_hasta < CURDATE()) as caducadas')
+            ->selectRaw('SUM(revocada_en IS NOT NULL) as revocadas')
             ->selectRaw('SUM(concedida = 0) as negadas')
             ->selectRaw('SUM(concedida IS NULL) as pendientes')
-            ->groupBy('titulo', 'tipo_autorizacion_id', 'fecha_limite')
+            ->groupBy('titulo', 'tipo_autorizacion_id', 'fecha_limite', 'vigencia_hasta')
             ->orderByDesc('emitida_en')
             ->limit(50)
             ->get();
@@ -65,9 +71,12 @@ class AutorizacionController extends Controller
                 'titulo' => $e->titulo,
                 'tipo' => $tipos[$e->tipo_autorizacion_id]->nombre ?? null,
                 'fecha_limite' => $e->fecha_limite,
+                'vigencia_hasta' => $e->vigencia_hasta,
                 'emitida_en' => $e->emitida_en,
                 'total' => (int) $e->total,
-                'concedidas' => (int) $e->concedidas,
+                'en_vigor' => (int) $e->en_vigor,
+                'caducadas' => (int) $e->caducadas,
+                'revocadas' => (int) $e->revocadas,
                 'negadas' => (int) $e->negadas,
                 'pendientes' => (int) $e->pendientes,
             ]),
@@ -85,12 +94,19 @@ class AutorizacionController extends Controller
             'titulo' => ['required', 'string', 'max:180'],
             'detalle' => ['nullable', 'string', 'max:1000'],
             'fecha_limite' => ['nullable', 'date', 'after_or_equal:today'],
+            /*
+             * Hasta cuándo VALE lo concedido, distinto del plazo para contestar.
+             * Vacío = permanente. Y no antes del plazo de respuesta: un permiso
+             * que caduca antes de poder contestarse no sirve para nada.
+             */
+            'vigencia_hasta' => ['nullable', 'date', 'after_or_equal:today', 'after_or_equal:fecha_limite'],
             // Sin alumnos no se le pide nada a nadie, y una autorización que no
             // llega a ninguna familia es una fila guardada en una tabla.
             'alumnos' => ['required', 'array', 'min:1'],
             'alumnos.*' => ['integer'],
         ], [
             'fecha_limite.after_or_equal' => 'Una autorización con el plazo ya vencido nace sin poder contestarse.',
+            'vigencia_hasta.after_or_equal' => 'La vigencia no puede terminar antes del plazo para contestar.',
         ]);
 
         $vinculos = TutorAlumno::query()
@@ -107,6 +123,7 @@ class AutorizacionController extends Controller
                     'titulo' => $datos['titulo'],
                     'detalle' => $datos['detalle'] ?? null,
                     'fecha_limite' => $datos['fecha_limite'] ?? null,
+                    'vigencia_hasta' => $datos['vigencia_hasta'] ?? null,
                 ]);
 
                 $creadas++;
@@ -189,6 +206,42 @@ class AutorizacionController extends Controller
     }
 
     /**
+     * La familia RETIRA lo que concedió.
+     *
+     * No se ata al plazo de respuesta: revocar un consentimiento vigente es un
+     * derecho —el de uso de imagen, sobre todo—. Sólo alcanza a lo que está EN
+     * VIGOR: una caducada ya no vale, una negada no se concedió, y una salida
+     * cuya vigencia terminó no se «des-autoriza» el lunes siguiente. Queda
+     * distinta de una negada: `revocada_en` lo dice y el conteo la separa.
+     */
+    public function revocar(Request $peticion, Autorizacion $autorizacion): RedirectResponse
+    {
+        /** @var Usuario $usuario */
+        $usuario = $peticion->user();
+
+        $esSuya = $usuario->persona_id !== null
+            && TutorAlumno::query()
+                ->whereKey($autorizacion->vinculo_familiar_id)
+                ->where('tutor_persona_id', $usuario->persona_id)
+                ->exists();
+
+        abort_unless($esSuya, 404);
+
+        abort_unless($autorizacion->puedeRevocar(), 404);
+
+        $datos = $peticion->validate([
+            'comentario' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $autorizacion->update([
+            'revocada_en' => now(),
+            'comentario' => $datos['comentario'] ?? $autorizacion->comentario,
+        ]);
+
+        return back(303)->with('exito', 'Autorización revocada: ya no está en vigor.');
+    }
+
+    /**
      * Las que le tocan a este familiar, para su portal.
      *
      * @return array<int, array<string, mixed>>
@@ -218,11 +271,19 @@ class AutorizacionController extends Controller
                 'alumno' => $a->vinculo?->alumno?->nombreCompleto(),
                 'parentesco' => Parentesco::nombreDe($a->vinculo?->parentesco_id),
                 'fecha_limite' => $a->fecha_limite?->toDateString(),
+                'vigencia_hasta' => $a->vigencia_hasta?->toDateString(),
                 'vencida' => $a->estaVencida(),
                 'concedida' => $a->concedida,
+                'estado' => $a->estado(),
                 'comentario' => $a->comentario,
                 'fecha_respuesta' => $a->fecha_respuesta?->toDateTimeString(),
-                'puede_responder' => $a->admiteRespuesta(),
+                'revocada_en' => $a->revocada_en?->toDateTimeString(),
+                // Responder (dar o cambiar la respuesta) mientras el plazo siga
+                // abierto y NO esté concedida: una concedida se RETIRA con
+                // revocar, no se «cambia a negada». Pendiente o negada sí se
+                // pueden mover antes del plazo.
+                'puede_responder' => $a->admiteRespuesta() && $a->concedida !== true,
+                'puede_revocar' => $a->puedeRevocar(),
             ])
             ->all();
     }

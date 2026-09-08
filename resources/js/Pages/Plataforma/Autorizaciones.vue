@@ -19,9 +19,12 @@ interface Emision {
     titulo: string;
     tipo: string | null;
     fecha_limite: string | null;
+    vigencia_hasta: string | null;
     emitida_en: string;
     total: number;
-    concedidas: number;
+    en_vigor: number;
+    caducadas: number;
+    revocadas: number;
     negadas: number;
     pendientes: number;
 }
@@ -38,6 +41,7 @@ const form = useForm({
     titulo: '',
     detalle: '',
     fecha_limite: '',
+    vigencia_hasta: '',
     alumnos: [] as number[],
 });
 
@@ -67,7 +71,7 @@ function emitir(): void {
 
 /** Cuánto se ha contestado, para la barra de cada emisión. */
 function avance(e: Emision): number {
-    return e.total === 0 ? 0 : Math.round(((e.concedidas + e.negadas) / e.total) * 100);
+    return e.total === 0 ? 0 : Math.round(((e.total - e.pendientes) / e.total) * 100);
 }
 </script>
 
@@ -101,10 +105,17 @@ function avance(e: Emision): number {
                         />
                         <CampoTexto
                             v-model="form.fecha_limite"
-                            etiqueta="Fecha límite"
+                            etiqueta="Fecha límite para contestar"
                             tipo="date"
                             :error="form.errors.fecha_limite"
-                            ayuda="Déjala vacía si el permiso no vence (uso de imagen)."
+                            ayuda="Hasta cuándo puede la familia responder. Vacía = sin plazo."
+                        />
+                        <CampoTexto
+                            v-model="form.vigencia_hasta"
+                            etiqueta="Válida hasta"
+                            tipo="date"
+                            :error="form.errors.vigencia_hasta"
+                            ayuda="Hasta cuándo VALE lo concedido: una salida vale su día. Vacía = permanente (uso de imagen)."
                         />
                     </div>
 
@@ -169,17 +180,22 @@ function avance(e: Emision): number {
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
                         <span class="font-medium">{{ e.titulo }}</span>
                         <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                            {{ e.tipo }}<span v-if="e.fecha_limite"> · hasta el {{ e.fecha_limite }}</span>
+                            {{ e.tipo }}<span v-if="e.fecha_limite"> · contestar hasta el {{ e.fecha_limite }}</span>
+                            <span v-if="e.vigencia_hasta"> · vale hasta el {{ e.vigencia_hasta }}</span>
                         </span>
                     </div>
 
                     <!--
-                        Los tres números, y no sólo «cuántas faltan»: quien mira
-                        esto necesita saber si le NEGARON algo, que es distinto
-                        de que no hayan contestado.
+                        En VIGOR y no «concedidas»: una que caducó o se revocó
+                        dejó de valer, y contarla como concedida ocultaría que el
+                        permiso ya no está. Se separan caducadas y revocadas
+                        porque son cosas distintas, y una negada no es ninguna.
                     -->
                     <p class="mt-0.5 text-xs" :style="{ color: 'var(--color-suave)' }">
-                        {{ e.concedidas }} autorizaron · {{ e.negadas }} no autorizaron ·
+                        <strong>{{ e.en_vigor }}</strong> en vigor ·
+                        <span v-if="e.caducadas">{{ e.caducadas }} caducadas · </span>
+                        <span v-if="e.revocadas">{{ e.revocadas }} revocadas · </span>
+                        {{ e.negadas }} no autorizaron ·
                         <span :class="e.pendientes > 0 ? 'font-medium text-amber-700' : ''">
                             {{ e.pendientes }} sin contestar
                         </span>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -27,11 +27,15 @@ interface Autorizacion {
     tipo: string | null;
     alumno: string | null;
     fecha_limite: string | null;
+    vigencia_hasta: string | null;
     vencida: boolean;
     concedida: boolean | null;
+    estado: string;
     comentario: string | null;
     fecha_respuesta: string | null;
+    revocada_en: string | null;
     puede_responder: boolean;
+    puede_revocar: boolean;
 }
 
 const props = defineProps<{ hijos: Hijo[]; autorizaciones: Autorizacion[] }>();
@@ -48,6 +52,15 @@ const resueltas = computed(() => props.autorizaciones.filter((a) => a.concedida 
 
 const verResueltas = ref(false);
 
+const ESTADO: Record<string, { texto: string; color: string }> = {
+    en_vigor: { texto: 'En vigor', color: '#16a34a' },
+    caducada: { texto: 'Ya venció su vigencia', color: '#64748b' },
+    revocada: { texto: 'Revocada por ti', color: '#b45309' },
+    negada: { texto: 'No autorizada', color: '#dc2626' },
+    sin_responder: { texto: 'Sin contestar, ya venció el plazo', color: '#b45309' },
+    pendiente: { texto: 'Pendiente', color: '#d97706' },
+};
+
 const respuesta = useForm({ concedida: true, comentario: '' });
 const respondiendo = ref<number | null>(null);
 
@@ -61,6 +74,19 @@ function responder(autorizacion: Autorizacion, concedida: boolean): void {
             respondiendo.value = null;
             respuesta.reset();
         },
+    });
+}
+
+/* Retirar lo concedido. Es un derecho —el de uso de imagen, sobre todo— y por
+ * eso está disponible aunque el plazo de respuesta ya haya pasado. */
+function revocar(autorizacion: Autorizacion): void {
+    if (!confirm(`¿Revocar «${autorizacion.titulo}»? Dejará de estar en vigor.`)) return;
+
+    respondiendo.value = autorizacion.id;
+
+    router.post(`/mis-hijos/autorizaciones/${autorizacion.id}/revocar`, {}, {
+        preserveScroll: true,
+        onFinish: () => (respondiendo.value = null),
     });
 }
 
@@ -172,20 +198,35 @@ function colorPromedio(p: number | null): string | undefined {
                         <p class="font-medium">{{ a.titulo }}</p>
                         <p class="text-xs" :style="{ color: 'var(--color-suave)' }">
                             {{ a.alumno }}<span v-if="a.fecha_respuesta"> · {{ a.fecha_respuesta }}</span>
+                            <span v-if="a.estado === 'en_vigor' && a.vigencia_hasta"> · vale hasta el {{ a.vigencia_hasta }}</span>
                         </p>
                         <p v-if="a.comentario" class="text-xs italic" :style="{ color: 'var(--color-suave)' }">
                             {{ a.comentario }}
                         </p>
                     </div>
-                    <span
-                        class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                        :style="{
-                            backgroundColor: `color-mix(in srgb, ${a.concedida === null ? '#f59e0b' : a.concedida ? '#16a34a' : '#dc2626'} 14%, transparent)`,
-                            color: a.concedida === null ? '#b45309' : a.concedida ? '#16a34a' : '#dc2626',
-                        }"
-                    >
-                        {{ a.concedida === null ? 'Sin contestar, ya venció' : a.concedida ? 'Autorizada' : 'No autorizada' }}
-                    </span>
+                    <div class="flex shrink-0 items-center gap-2">
+                        <!-- Retirar lo concedido: sólo lo que está en vigor, y
+                             disponible aunque el plazo de respuesta ya pasó. -->
+                        <button
+                            v-if="a.puede_revocar"
+                            type="button"
+                            class="rounded-lg border px-3 py-1 text-xs"
+                            :style="{ borderColor: 'var(--color-borde)', color: '#b45309' }"
+                            :disabled="respondiendo === a.id"
+                            @click="revocar(a)"
+                        >
+                            Revocar
+                        </button>
+                        <span
+                            class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                            :style="{
+                                backgroundColor: `color-mix(in srgb, ${(ESTADO[a.estado]?.color ?? '#64748b')} 14%, transparent)`,
+                                color: ESTADO[a.estado]?.color ?? '#64748b',
+                            }"
+                        >
+                            {{ ESTADO[a.estado]?.texto ?? a.estado }}
+                        </span>
+                    </div>
                 </li>
             </ul>
         </div>

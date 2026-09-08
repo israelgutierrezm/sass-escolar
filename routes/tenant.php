@@ -2164,6 +2164,11 @@ Route::middleware([
             ->middleware('can:ver-mis-hijos')
             ->name('tenant.padre.autorizaciones.responder');
 
+        Route::post('mis-hijos/autorizaciones/{autorizacion}/revocar', [AutorizacionController::class, 'revocar'])
+            ->whereNumber('autorizacion')
+            ->middleware('can:ver-mis-hijos')
+            ->name('tenant.padre.autorizaciones.revocar');
+
         /*
          * Y el expediente del propio TUTOR: lo que la escuela le pide A ÉL.
          *
