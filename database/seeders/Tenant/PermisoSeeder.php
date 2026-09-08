@@ -91,6 +91,12 @@ class PermisoSeeder extends Seeder
         // pertenencia igual que el del padre y el del docente.
         'tutor_educativo' => ['ver-mis-tutorados', 'ver-historial-academico'],
         'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor', 'ver-conducta-hijo'],
+        // El supervisor externo entra a SU portal y valida lo de SUS
+        // expedientes. Reusa `aprobar-horas-formativas` y
+        // `revisar-informes-formativos` —la misma acción que el administrativo,
+        // con OTRO alcance— porque duplicar el permiso duplicaría la regla; el
+        // recorte a sus expedientes lo hace `AlcanceDeExpedientes`, no el permiso.
+        'supervisor_externo' => ['ver-mis-supervisados', 'aprobar-horas-formativas', 'revisar-informes-formativos'],
     ];
 
     public function run(): void

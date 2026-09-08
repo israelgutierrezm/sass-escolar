@@ -35,6 +35,11 @@ class RolSeeder extends Seeder
             ['aspirante', 'Aspirante'],
             ['tutor_educativo', 'Tutor educativo'],
             ['padre_familia', 'Padre o tutor familiar'],
+            // El supervisor de la organización receptora del servicio social:
+            // alguien de fuera con acceso acotado a los expedientes que se le
+            // asignen. Faceta y no rol administrativo para que su alcance nunca
+            // se ensanche a la escuela.
+            ['supervisor_externo', 'Supervisor externo'],
         ];
 
         $ids = [];

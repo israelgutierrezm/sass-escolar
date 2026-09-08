@@ -383,6 +383,9 @@ export const CATALOGO_MENU: GrupoMenu[] = [
             { clave: 'procesos-plazas', etiqueta: 'Plazas y proyectos', url: '/procesos/plazas', permiso: 'ver-procesos-formativos' },
             { clave: 'procesos-reglas', etiqueta: 'Reglas por programa', url: '/procesos/reglas', permiso: 'ver-procesos-formativos' },
             { clave: 'procesos-catalogos', etiqueta: 'Catálogos', url: '/procesos/catalogos', permiso: 'ver-procesos-formativos' },
+            // Administrar el acceso de los supervisores externos: permiso propio
+            // Y ADEMÁS el de entrar a la sección, que es lo que pide la ruta.
+            { clave: 'procesos-supervisores', etiqueta: 'Supervisores externos', url: '/procesos/supervisores', permiso: 'gestionar-supervisores-externos', y: 'ver-procesos-formativos' },
         ],
     },
     {
@@ -446,6 +449,23 @@ export const CATALOGO_MENU: GrupoMenu[] = [
         modulo: 'procesos_formativos',
         hijos: [
             { clave: 'mi-proceso-listado', etiqueta: 'Mi servicio social', url: '/mi-servicio-social', permiso: 'ver-mi-proceso-formativo' },
+        ],
+    },
+    {
+        /*
+         * El portal del SUPERVISOR EXTERNO. Faceta propia: quien supervisa a un
+         * practicante desde una organización no es personal de la escuela ni
+         * alumno, y sólo ve a sus asignados. La sección cuelga del módulo, así
+         * que una escuela que apague servicio social la esconde también.
+         */
+        clave: 'supervision-externa',
+        etiqueta: 'Supervisión',
+        prefijo: '/supervision',
+        facetas: ['supervisor_externo'],
+        icono: 'M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z',
+        modulo: 'procesos_formativos',
+        hijos: [
+            { clave: 'supervision-listado', etiqueta: 'Mis practicantes', url: '/supervision', permiso: 'ver-mis-supervisados' },
         ],
     },
     {

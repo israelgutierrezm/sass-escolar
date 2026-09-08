@@ -141,6 +141,8 @@ use App\Http\Controllers\ProcesosFormativos\OrganizacionReceptoraController;
 use App\Http\Controllers\ProcesosFormativos\PlazaProcesoController;
 use App\Http\Controllers\ProcesosFormativos\ReglaProcesoController;
 use App\Http\Controllers\ProcesosFormativos\SeguimientoFormativoController;
+use App\Http\Controllers\ProcesosFormativos\SupervisionController;
+use App\Http\Controllers\ProcesosFormativos\SupervisorExternoController;
 use App\Http\Controllers\ProgramaAcademicoController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\RecursosDigitalesController;
@@ -2710,6 +2712,36 @@ Route::middleware([
                             Route::delete('{plaza}', 'eliminar')->whereNumber('plaza')->name('eliminar');
                         });
                     });
+
+                /*
+                 * El ACCESO de los supervisores externos al portal. Administrar
+                 * quién entra es un permiso propio --no lo tiene quien sólo
+                 * valida horas del mostrador-- y va encima de `ver-procesos`.
+                 */
+                Route::controller(SupervisorExternoController::class)
+                    ->prefix('supervisores')->name('supervisores.')
+                    ->middleware('can:gestionar-supervisores-externos')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('{contacto}/invitar', 'invitar')->whereNumber('contacto')->name('invitar');
+                        Route::post('{contacto}/revocar', 'revocar')->whereNumber('contacto')->name('revocar');
+                    });
+            });
+
+        /*
+         * El PORTAL del supervisor externo: sus practicantes y nada mas.
+         *
+         * Cuelga de la raiz, con su propio permiso de faceta
+         * `ver-mis-supervisados`. Las ACCIONES --aprobar horas, revisar
+         * informes-- no viven aqui: reusan el grupo de seguimiento de abajo, que
+         * ya comprueba el par permiso + alcance para los dos oficios.
+         */
+        Route::middleware(['modulo:procesos_formativos', 'can:ver-mis-supervisados'])
+            ->controller(SupervisionController::class)
+            ->prefix('supervision')->name('tenant.supervision.')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::get('{expediente}', 'show')->whereNumber('expediente')->name('ver');
             });
 
         /*

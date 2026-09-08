@@ -7,6 +7,8 @@ namespace App\Services\ProcesosFormativos;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Identidad\Usuario;
 use App\Models\ProcesosFormativos\ExpedienteProceso;
+use App\Models\ProcesosFormativos\OrganizacionContacto;
+use App\Support\CatalogoPermisos;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -25,6 +27,14 @@ use Illuminate\Database\Eloquent\Builder;
  * que alguien cambie de plantel. Se llega por `matricula.oferta.campus_id`,
  * que es el mismo camino que usan la cartera y el historial.
  *
+ * ── El SUPERVISOR externo NO se acota por campus ──────────────────────────
+ * Su faceta se resuelve ANTES de mirar el campus, y no por gusto: un supervisor
+ * no tiene `persona_rol.campus_id`, así que `campusVisibles()` le devolvería
+ * NULL —«todos»— y vería la escuela entera. Se acota por otra cosa: los
+ * expedientes cuyo contacto de supervisión es ÉL y cuyo acceso está VIGENTE.
+ * Un acceso revocado o vencido deja el alcance en NADA, que es el lado seguro:
+ * el mismo criterio que este servicio ya aplica cuando el campus no calza.
+ *
  * ── `campusVisibles()` devuelve NULL con alcance global ───────────────────
  * Null NO es «ninguno», es «todos». Confundirlos deja a dirección general sin
  * ver nada — o, al revés, deja al coordinador de un plantel viendo la escuela
@@ -35,6 +45,10 @@ class AlcanceDeExpedientes
     /** @param  Builder<ExpedienteProceso>  $consulta */
     public function acotar(Builder $consulta, ?Usuario $quien): Builder
     {
+        if ($this->esSupervisor($quien)) {
+            return $this->acotarASupervisor($consulta, $quien);
+        }
+
         $campus = $quien?->campusVisibles();
 
         if ($campus === null) {
@@ -49,6 +63,15 @@ class AlcanceDeExpedientes
 
     public function alcanza(ExpedienteProceso $expediente, ?Usuario $quien): bool
     {
+        if ($this->esSupervisor($quien)) {
+            $expediente->loadMissing('supervisor');
+            $supervisor = $expediente->supervisor;
+
+            return $supervisor !== null
+                && (int) $supervisor->persona_id === (int) $quien->persona_id
+                && $supervisor->accesoVigente();
+        }
+
         $campus = $quien?->campusVisibles();
 
         if ($campus === null) {
@@ -58,6 +81,33 @@ class AlcanceDeExpedientes
         $expediente->loadMissing('matricula.oferta:id,campus_id');
 
         return in_array((int) $expediente->matricula?->oferta?->campus_id, array_map('intval', $campus), true);
+    }
+
+    /**
+     * ¿El rol activo es la faceta de supervisor externo?
+     *
+     * Se pregunta por la FACETA y no por un permiso: un permiso lo puede tener
+     * también un administrativo (para validar horas del mostrador), y aquí lo
+     * que decide el ALCANCE es el oficio con el que se está mirando la
+     * plataforma. Es la misma línea que separa al docente del control escolar.
+     */
+    private function esSupervisor(?Usuario $quien): bool
+    {
+        return $quien?->rolActivo?->faceta()?->name === CatalogoPermisos::SUPERVISOR;
+    }
+
+    /** @param  Builder<ExpedienteProceso>  $consulta */
+    private function acotarASupervisor(Builder $consulta, Usuario $quien): Builder
+    {
+        // Sin persona detrás no supervisa a nadie: alcance vacío, nunca «todos».
+        if ($quien->persona_id === null) {
+            return $consulta->whereRaw('1 = 0');
+        }
+
+        return $consulta->whereHas('supervisor', function (Builder $c) use ($quien): void {
+            /** @var Builder<OrganizacionContacto> $c */
+            $c->where('persona_id', $quien->persona_id)->conAccesoVigente();
+        });
     }
 
     /**

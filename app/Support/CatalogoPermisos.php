@@ -51,6 +51,19 @@ final class CatalogoPermisos
     public const PADRE = 'padre_familia';
 
     /**
+     * El supervisor de la organización receptora del servicio social.
+     *
+     * NO es personal de la escuela: es alguien de fuera con acceso ACOTADO
+     * a los expedientes que se le asignaron (`contacto_supervisor_id`), para
+     * validar horas, revisar informes y evaluar. Es una faceta y no un rol
+     * administrativo a propósito: así su alcance NUNCA puede ensancharse a la
+     * escuela —el alcance por asignación cuelga de la faceta, como el del
+     * docente—, y nada de la cartera, calificaciones ajenas ni datos
+     * sensibles entra por esta puerta.
+     */
+    public const SUPERVISOR = 'supervisor_externo';
+
+    /**
      * Las facetas que existen. Una sola lista, a propósito.
      *
      * Había otra igual escrita a mano dentro de `Rol::ambitoDePermisos()`, y el
@@ -73,6 +86,7 @@ final class CatalogoPermisos
         self::ASPIRANTE,
         self::TUTOR,
         self::PADRE,
+        self::SUPERVISOR,
     ];
 
     /**
@@ -376,6 +390,8 @@ final class CatalogoPermisos
              * resto de los portales.
              */
             'ver-mi-proceso-formativo' => ['Ver mi servicio social o prácticas', 'Portal del alumno: si ya puede empezar, qué le falta exactamente y qué exige su programa.', [self::ALUMNO]],
+            'ver-mis-supervisados' => ['Ver mis alumnos supervisados', 'Portal del supervisor externo: sólo los expedientes que se le asignaron, para validar horas, revisar informes y evaluar. Sin cartera ni calificaciones.', [self::SUPERVISOR]],
+            'gestionar-supervisores-externos' => ['Invitar y revocar supervisores externos', 'Dar de alta el acceso de un supervisor de la organización receptora, fijar su vigencia y revocarlo. El acceso queda acotado a los expedientes que se le asignen.', [self::ADMINISTRATIVO]],
             /*
              * La bandeja: tomar una solicitud, pedirle correcciones,
              * aprobarla, rechazarla y asignarle organización. Es el trabajo
@@ -400,8 +416,8 @@ final class CatalogoPermisos
              * da fe de que ese tiempo se trabajó. Y de aquí depende un dato que
              * después se imprime en una constancia.
              */
-            'aprobar-horas-formativas' => ['Aprobar horas', 'Dar por buenas las jornadas que el alumno registra, o rechazarlas con su motivo. Sólo las aprobadas cuentan.', [self::ADMINISTRATIVO]],
-            'revisar-informes-formativos' => ['Revisar informes y evaluaciones', 'Aceptar o devolver los informes del alumno, y capturar la evaluación del supervisor o del coordinador.', [self::ADMINISTRATIVO]],
+            'aprobar-horas-formativas' => ['Aprobar horas', 'Dar por buenas las jornadas que el alumno registra, o rechazarlas con su motivo. Sólo las aprobadas cuentan.', [self::ADMINISTRATIVO, self::SUPERVISOR]],
+            'revisar-informes-formativos' => ['Revisar informes y evaluaciones', 'Aceptar o devolver los informes del alumno, y capturar la evaluación del supervisor o del coordinador.', [self::ADMINISTRATIVO, self::SUPERVISOR]],
             /*
              * LIBERAR emite un documento con folio. No se automatiza por horas
              * —alcanzar las horas sólo quita un impedimento de la lista— y es lo

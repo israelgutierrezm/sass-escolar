@@ -324,13 +324,24 @@ class SeguimientoFormativoController extends Controller
             return;
         }
 
+        /*
+         * Quien REVISA tiene que poder ABRIR lo que revisa: la evidencia de una
+         * jornada, el archivo de un informe. Por eso no basta `ver-procesos`
+         * --que el supervisor externo no tiene--: vale también cualquiera de los
+         * dos permisos de revisión. El alcance de abajo sigue acotando a lo
+         * suyo, así que un supervisor no abre el adjunto de otro.
+         */
+        $usuario = $peticion->user();
+
         AvisoParaElUsuario::aMenosQue(
-            $peticion->user()?->can('ver-procesos-formativos') === true,
+            $usuario?->can('ver-procesos-formativos') === true
+                || $usuario?->can('aprobar-horas-formativas') === true
+                || $usuario?->can('revisar-informes-formativos') === true,
             404,
             'Ese expediente no es tuyo.',
         );
 
-        $this->alcance->exigirQueAlcance($expediente, $peticion->user());
+        $this->alcance->exigirQueAlcance($expediente, $usuario);
     }
 
     /** Cuelga de una matrícula de quien pide. */
