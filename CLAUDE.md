@@ -1834,6 +1834,54 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Permanencia · SIMULADOR de reglas** (2026-09-07, tercer flujo de la revisión
+  de cinco módulos). Previsualizar a quién marcaría un umbral candidato ANTES de
+  encender la regla, sin generar alertas.
+  - **Qué había y qué faltaba**: el motor ya tenía un modo `--seco` que MIDE y no
+    escribe, pero corre sobre las reglas REALES ya guardadas —no deja probar un
+    umbral candidato ni una regla en borrador—. Verificado: no existía ningún
+    «qué pasaría si». El sesgo dominante del módulo es de CALIBRACIÓN (la propia
+    bitácora lo dice: tasa de descarte, cobertura), y las reglas nacen apagadas
+    justo para afinarlas antes; lo que faltaba era con qué.
+  - **`SimuladorDeReglas` NO ESCRIBE NADA.** Ni una alerta, ni una corrida —
+    como `GeneradorMatricula::previsualizar` no consume folio—. Una prueba toma
+    la huella de `alertas` y `corridas_evaluacion` antes y después.
+  - **Reusa el VEREDICTO del motor.** Se extrajo `MotorDeEvaluacion::veredictoDe`
+    (`sin_datos` / `dispara` / `no_dispara`) a un solo sitio, que ahora usan
+    `resolver` (para levantar/cerrar, con su historia) y el simulador (para
+    previsualizar, sin ella). Escrito dos veces, el simulador prometería una
+    cosa y el motor de madrugada haría otra. La suite del motor (84 verif)
+    confirma que la extracción no cambió su comportamiento; la del simulador
+    CRUZA su conteo contra un recorrido a mano con `veredictoDe`.
+  - **El umbral candidato es EN MEMORIA**: se arma un `ReglaAlertaVersion` sin
+    guardar con los parámetros del formulario, el proveedor sale de la métrica
+    CANDIDATA (puede diferir de la guardada), y el alcance y la categoría de la
+    regla. `umbralDe` también se volvió público —el simulador honra el umbral
+    del PLAN igual que el motor—.
+  - **Respeta el alcance de quien simula.** Sólo recorre matrículas de sus
+    campus, y de una categoría SENSIBLE devuelve el CONTEO pero NO los nombres:
+    calibrar necesita el cuántos, no exponer quiénes tienen un problema de
+    dinero. Mismo criterio que la bandeja. La proporción SIN DATOS es la otra
+    mitad de la calibración —una regla que no marca a nadie puede ser que nadie
+    la cumpla o que no haya con qué medirla— y va en null, no en cero, cuando no
+    hubo ninguna medición.
+  - **Tope de 3000 matrículas** —esto corre en una PETICIÓN, no de madrugada— y
+    se dice cuando la cifra es un piso.
+  - **La simulación llega por FLASH** (`HandleInertiaRequests`, clave
+    `simulacion`), como la propuesta de horario: no es un mensaje, son datos, y
+    así un F5 no la recalcula. El botón «Simular sin encender» vive en el panel
+    de emitir versión, antes de guardar.
+  - **NO se acota por campus el EDITOR de reglas** (configurar qué vigila la
+    escuela es institucional, como dice su docblock), pero la PREVISUALIZACIÓN
+    sí —revela datos por alumno, así que sigue el alcance de la bandeja—. Un
+    director general (el caso normal) ve la escuela entera; un coordinador
+    acotado, su plantel.
+  - Pruebas: `scripts/prueba-simulador-reglas.php`, 22 verificaciones,
+    comprobadas mutando **4 reglas** (el veredicto ignorando la cobertura, el
+    veredicto que nunca dispara, el simulador sin filtro de campus y el que
+    ignora la sensibilidad de la categoría). Más la sección que invoca al
+    controlador y comprueba el flash y la no-escritura.
+
 - **LMS · PRERREQUISITOS entre actividades** (2026-09-07, segundo flujo de la
   revisión de cinco módulos). Una actividad puede exigir que otra del MISMO
   curso se complete antes de abrirse al alumno.
