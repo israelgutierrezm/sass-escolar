@@ -1834,6 +1834,69 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **LMS · PRERREQUISITOS entre actividades** (2026-09-07, segundo flujo de la
+  revisión de cinco módulos). Una actividad puede exigir que otra del MISMO
+  curso se complete antes de abrirse al alumno.
+  - **Qué había y qué faltaba**: el candado por FECHA (`abre_en`/`cierra_en`) ya
+    existía y el aula ya calculaba «completada» por actividad; lo que NO existía
+    era el candado por FINALIZACIÓN. `Seriacion` es entre `plan_materias`, no
+    entre actividades. Verificado antes de construir: `actividades` no tenía
+    columna de dependencia y el aula dejaba saltar a cualquier lección.
+  - **`actividades.prerequisito_id`, auto-FK `nullOnDelete`.** No es catálogo ni
+    `config` JSON: es una relación entre dos actividades del curso, y en JSON no
+    se podría remapear al copiar la plantilla a un grupo (cada actividad estrena
+    id) ni la base garantizaría que apunte a algo que existe.
+  - **`App\Services\Lms\Prerequisitos` centraliza todo**: el criterio ÚNICO de
+    «completada» —entregar lo que se entrega, declarar lo que se lee— que el aula
+    ya usaba y ahora COMPARTE (una definición, no dos, para que la barra de
+    progreso, el índice y el candado no se contradigan), el candado por
+    inscripción y por persona, y la validación al guardar.
+  - **Falla ABIERTO.** Un prerrequisito oculto, aún sin abrir o ya cerrado sin
+    extemporáneos DEJA de bloquear: nunca se encierra a un alumno por un cambio
+    del docente, y así el aula (que usa `visibles()`) y la puerta del servidor
+    dicen lo mismo. Lo peor que pasa es que una actividad quede accesible antes
+    de tiempo, y eso lo corrige el docente; un candado que atrapa es peor.
+  - **Se abre al COMPLETAR, no al APROBAR.** Exigir nota de paso dejaría al
+    alumno esperando a que el docente califique —a veces días— y abre «cuánto es
+    aprobar». Es el default de Moodle; «debe aprobarlo» sería otra rebanada,
+    anotada en el docblock.
+  - **La enforcement es del SERVIDOR, no de la pantalla.** Cada acción que
+    «completa» una actividad la comprueba ANTES de escribir: entregar
+    (`EntregaController`), iniciar un examen (`PresentacionExamen`), sumar al
+    portafolio (`PortafolioController` —en `miEntregaEn`, que comparten agregar y
+    entregar—), participar en el foro (`ForoController`) y marcar una lectura
+    (`AulaController@completar`). Esconder el botón no basta: el POST llega igual.
+  - **El candado es del ALUMNO, no del docente.** El foro lo escriben los dos
+    oficios, así que ahí se usa `exigirDesbloqueadaParaPersona`, que resuelve la
+    inscripción de quien escribe y devuelve «sin candado» cuando no tiene —el
+    docente pasa—.
+  - **El aula lo dice**: la lección bloqueada esconde su contenido y sus
+    acciones y muestra «Completa «X»»; el índice le pone candado; el examen
+    explica por qué no se puede presentar. `verEvidencia`/`verInforme` no
+    aplican aquí; el que sí importaba —`exigirQueLoAlcance`— es de servicio
+    social.
+  - **El docente elige el prerrequisito entre las OTRAS actividades del curso**,
+    en su editor (`ActividadController`) y en la plantilla del plan
+    (`CursoPlantillaController`) —los dos editores duplican la validación, así
+    que vive en el servicio compartido—. Se valida: mismo curso, no ella misma,
+    sin ciclo (se camina la cadena).
+  - **`CopiadorDeCurso` re-ata el candado en una SEGUNDA pasada** al id COPIADO,
+    no al de la plantilla: primero todas las actividades (armando el mapa
+    viejo→nuevo), luego el prerrequisito. En una sola pasada, una actividad
+    podría apuntar a un prerrequisito aún no copiado; y sin remapear, el grupo
+    quedaría con candados apuntando a la actividad de la plantilla —el mismo
+    defecto que copiar el examen venía a evitar—.
+  - Pruebas: `scripts/prueba-prerequisitos-actividad.php`, 26 verificaciones,
+    comprobadas mutando **9 reglas** (todas mueren): el candado que nunca
+    bloquea, el fail-open sin `!abierta` y sin `!publicada`, el criterio de
+    completada, la validación sin filtro de curso y sin ciclo, el copiador sin
+    remapear, y el 403 quitado de entregar y de marcar una lectura.
+  - **Trampa reconfirmada**: `php artisan tenants:migrate` sobre el demo desaloja
+    definiciones del `table_definition_cache` y hace caer suites VIEJAS con
+    «SIN RESUMEN» / «0 correctas, 1 fallidas» (MySQL 1615). No es regresión: se
+    cura con `FLUSH TABLES`. Cayeron `prueba-procesos-catalogos` y
+    `prueba-ventanas-captura`, verdes tras el flush.
+
 - **Servicio social · el PORTAL DEL SUPERVISOR EXTERNO** (2026-09-07, primer
   flujo de la revisión de cinco módulos). Quien supervisa a un practicante desde
   una organización entra a ver SÓLO a sus asignados, para aprobar sus horas y
