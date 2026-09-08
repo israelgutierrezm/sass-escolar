@@ -1834,6 +1834,75 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Servicio social · el PORTAL DEL SUPERVISOR EXTERNO** (2026-09-07, primer
+  flujo de la revisión de cinco módulos). Quien supervisa a un practicante desde
+  una organización entra a ver SÓLO a sus asignados, para aprobar sus horas y
+  revisar sus informes y evaluación. `/supervision` (faceta) y
+  `/procesos/supervisores` (administración, `gestionar-supervisores-externos`).
+  - **Casi todo el enganche YA estaba**: el expediente apunta a su supervisor por
+    `contacto_supervisor_id → OrganizacionContacto`, y ese contacto ya traía
+    `persona_id` opcional con su docblock diciendo «cuando llegue su portal, será
+    esta columna la que lo haga posible». Lo único nuevo de datos es la VIGENCIA
+    (invitado_en, acceso_desde/hasta, revocado), que vive EN el contacto: una
+    tabla aparte sería un segundo sitio donde buscar lo mismo.
+  - **La faceta decide el ALCANCE, no el permiso.** Faceta propia
+    `supervisor_externo` (protegida). Los dos permisos de revisión
+    —`aprobar-horas-formativas` y `revisar-informes-formativos`— se COMPARTEN con
+    la faceta administrativa (el mismo acto, distinto alcance) en vez de
+    duplicarse; se suma sólo `ver-mis-supervisados`.
+  - **`AlcanceDeExpedientes` se vuelve consciente de la faceta, y el orden
+    importa**: el supervisor se resuelve ANTES del campus. No tiene
+    `persona_rol.campus_id`, así que `campusVisibles()` le devolvería NULL
+    —«todos»— y vería la escuela entera; en su lugar se acota a los expedientes
+    cuyo contacto de supervisión es ÉL y cuyo acceso está VIGENTE. Revocado o
+    vencido = alcance en NADA, el lado seguro. **Es la MISMA puerta
+    (`exigirQueAlcance`) que ya usan aprobar horas y revisar informes**, así que
+    no hay guarda paralela: acotar la lista nunca fue una defensa, el id viaja
+    por la URL.
+  - **La vigencia, una regla en DOS sitios**: `scopeConAccesoVigente` (SQL) y
+    `accesoVigente()` (PHP), cruzadas por la suite. Si se separan, el portal
+    mostraría u ocultaría lo que no debe sin fallar — la defensa de las columnas
+    generadas.
+  - **`AccesoSupervisorExterno` invita y revoca en un sitio.** Invitar REUSA
+    `AprovisionadorAcceso` (la misma pieza que da cuenta a un docente o alumno),
+    crea la persona MÍNIMA si el contacto no tenía (el login es de personas), y
+    **nunca pisa una contraseña ya configurada** —un supervisor que ya entra por
+    otro rol conserva la suya, y sólo la cuenta nueva estrena temporal—. Revocar
+    apaga la faceta SÓLO si no le queda ningún contacto vigente: quien supervisa
+    en dos organizaciones y pierde una sigue entrando por la otra, y el alcance
+    ya deja fuera los expedientes del contacto revocado.
+  - **`verEvidencia`/`verInforme` aceptan también a quien revisa.** Antes pedían
+    `ver-procesos-formativos` —que el supervisor no tiene—, así que no podía abrir
+    la evidencia de una jornada ni el archivo de un informe que sí revisa. Ahora
+    vale cualquiera de los dos permisos de revisión, y `exigirQueAlcance` lo sigue
+    acotando a lo suyo: no abre el adjunto de otro.
+  - **Horas, informes y evaluaciones salen de `PresentadorDeSeguimiento`**, la
+    MISMA forma que ve el coordinador. Escrito dos veces, el día que uno gane una
+    columna el otro se queda atrás; el admin `Detalle` pasó a usarlo también. El
+    portal NO trae cartera, calificaciones, documentos, liberación ni
+    transiciones — una prueba barre esas claves y exige que no viajen.
+  - **La cuenta del supervisor se crea con contraseña temporal que se muestra UNA
+    vez** en el aviso; no se guarda en claro ni se manda por un canal que no
+    controlamos. Y **NO se mandó ningún correo en la verificación**.
+  - Pruebas: `scripts/prueba-supervisor-externo.php`, 58 verificaciones,
+    comprobadas mutando **9 reglas** (todas mueren: faceta ignorada, alcance sin
+    vigencia, persona ajena que casa, invitar sin correo, revocar sin apagar,
+    scope sin revocado, vigente sin invitación, show sin alcance). Más un
+    recorrido HTTP REAL por el kernel —tenant, auth, rol, módulo y `can:`— con
+    **8/8** correctos (el supervisor entra a lo suyo y 403 en lo ajeno, el
+    director entra a administrar pero no al portal, el alumno a ninguno).
+  - **Trampa del método, anotada**: `Request::setUserResolver` NO basta en un
+    script si después se hace `app()->instance('request', ...)` —el rebinding de
+    Laravel PISA el resolver con el del guard—; hay que `auth()->login($como)`.
+    Costó dos fallas que parecían de alcance y eran de la prueba.
+  - **Verificado sin navegador, a propósito**: el login es de personas y no tecleo
+    contraseñas en un formulario, así que el render se probó por HTTP (200/403
+    reales) y compilando el frontend, no mirando píxeles. Mismo criterio que el
+    resto de lo «probado por HTTP, sin ver el render».
+  - **El plan de los cinco módulos vive en `docs/revision-cinco-modulos.md`**
+    —matriz A–F con evidencia—. Éste era el flujo 4.1, el primero sin decisión
+    institucional pendiente.
+
 - **Servicio social y prácticas · FASE 7: alertas y reportes** (2026-09-03).
   Con esto el módulo formativo queda entregado salvo la fase 8, que es opcional.
   `procesos:avisar`, diario a las 7:30, y ocho reportes en un área propia.
