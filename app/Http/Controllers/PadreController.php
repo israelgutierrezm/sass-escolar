@@ -203,6 +203,27 @@ class PadreController extends Controller
              * se contrató es peor que no tenerla.
              */
             'entregaDocumentos' => $this->entregaDocumentos($vinculo, $hijo),
+            /*
+             * Quién puede recoger a este hijo: la lista efectiva (tutores no
+             * bloqueados + terceros vigentes) y los terceros que la familia
+             * puede editar. Los bloqueos de custodia NO se muestran aquí: los
+             * pone la escuela y su motivo no sale al portal del otro progenitor.
+             */
+            'recogen' => [
+                'efectiva' => app(\App\Services\Familia\PuedeRecoger::class)->listaEfectiva($hijo->id),
+                'terceros' => \App\Models\Identidad\AutorizadoRecoger::query()
+                    ->where('alumno_persona_id', $hijo->id)->autoriza()
+                    ->with('parentesco:id,nombre')->orderBy('nombre')->get()
+                    ->map(fn (\App\Models\Identidad\AutorizadoRecoger $a) => [
+                        'id' => $a->id,
+                        'nombre' => $a->nombre,
+                        'identificacion' => $a->identificacion,
+                        'parentesco' => $a->parentesco?->nombre,
+                        'vigencia_hasta' => $a->vigencia_hasta?->toDateString(),
+                        'vigente' => $a->vigente(),
+                    ])->values(),
+                'parentescos' => \App\Models\Identidad\Parentesco::query()->orderBy('nombre')->get(['id', 'nombre']),
+            ],
             // Los accesos del hijo: un padre puede vigilar cuándo y desde dónde
             // entra su hijo, aunque no vea sus calificaciones ni sus finanzas.
             'accesos' => BitacoraAcceso::query()

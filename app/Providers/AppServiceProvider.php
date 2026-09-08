@@ -378,6 +378,9 @@ class AppServiceProvider extends ServiceProvider
                 // Y vinculación, para capturar por ventanilla la
                 // postulación de quien no se postuló solo.
                 || $usuario->can('gestionar-bolsa-trabajo')
+                // Y salida segura, para buscar al alumno cuyo permiso de
+                // recogida o bloqueo de custodia se administra.
+                || $usuario->can('gestionar-salida-segura')
         );
 
         /*

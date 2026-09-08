@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
@@ -81,7 +81,38 @@ const props = defineProps<{
         documentos: any[];
         tipos: { id: number; nombre: string; obligatorio: boolean }[];
     } | null;
+    /** Quién puede recoger a este hijo, y los terceros que la familia edita. */
+    recogen: {
+        efectiva: { nombre: string | null; parentesco: string | null; origen: string; vigencia_hasta: string | null }[];
+        terceros: { id: number; nombre: string; identificacion: string | null; parentesco: string | null; vigencia_hasta: string | null; vigente: boolean }[];
+        parentescos: { id: number; nombre: string }[];
+    };
 }>();
+
+const nuevoTercero = useForm({
+    nombre: '',
+    identificacion: '',
+    parentesco_id: null as number | null,
+    vigencia_desde: '',
+    vigencia_hasta: '',
+});
+const agregandoTercero = ref(false);
+
+function agregarTercero(): void {
+    nuevoTercero.post(`/mis-hijos/${props.hijo.id}/recogen`, {
+        preserveScroll: true,
+        onSuccess: () => {
+            nuevoTercero.reset();
+            agregandoTercero.value = false;
+        },
+    });
+}
+
+function quitarTercero(id: number): void {
+    if (!confirm('¿Retirar esta autorización de recogida?')) return;
+
+    router.delete(`/mis-hijos/recogen/${id}`, { preserveScroll: true });
+}
 
 /*
  * Un programa académico a la vez.
@@ -350,6 +381,79 @@ function colorCalif(estatusClave: string | null): string {
             :hijo="hijo.nombre"
             :entrega="entregaDocumentos"
         />
+
+        <!-- Quién puede recoger al hijo -->
+        <section class="tarjeta overflow-hidden">
+            <header class="flex flex-wrap items-center justify-between gap-2 border-b px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <div>
+                    <h2 class="text-base font-semibold">Quién puede recoger a {{ hijo.nombre.split(' ')[0] }}</h2>
+                    <p class="mt-0.5 text-sm" :style="{ color: 'var(--color-suave)' }">
+                        Tú y los demás tutores pueden recogerlo. Aquí agregas a otras personas de confianza.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="rounded-lg border px-3 py-1.5 text-sm"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    @click="agregandoTercero = !agregandoTercero"
+                >{{ agregandoTercero ? 'Cancelar' : 'Autorizar a alguien' }}</button>
+            </header>
+
+            <form v-if="agregandoTercero" class="grid gap-3 border-b px-6 py-4 sm:grid-cols-2" :style="{ borderColor: 'var(--color-borde)' }" @submit.prevent="agregarTercero">
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium">Nombre</span>
+                    <input v-model="nuevoTercero.nombre" required class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
+                    <span v-if="nuevoTercero.errors.nombre" class="mt-1 block text-xs text-red-600">{{ nuevoTercero.errors.nombre }}</span>
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium">Identificación (INE, pasaporte…)</span>
+                    <input v-model="nuevoTercero.identificacion" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium">Parentesco</span>
+                    <select v-model="nuevoTercero.parentesco_id" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }">
+                        <option :value="null">—</option>
+                        <option v-for="p in recogen.parentescos" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+                    </select>
+                </label>
+                <label class="block text-sm">
+                    <span class="mb-1 block font-medium">Válida hasta (opcional)</span>
+                    <input v-model="nuevoTercero.vigencia_hasta" type="date" class="w-full rounded-lg border px-3 py-2 text-sm" :style="{ borderColor: 'var(--color-borde)' }" />
+                    <span class="mt-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Déjala vacía si es permanente.</span>
+                </label>
+                <div class="sm:col-span-2">
+                    <button type="submit" :disabled="nuevoTercero.processing" class="rounded-lg px-4 py-2 text-sm font-medium" :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }">
+                        Autorizar
+                    </button>
+                </div>
+            </form>
+
+            <ul class="divide-y" :style="{ borderColor: 'var(--color-borde)' }">
+                <li v-for="(p, i) in recogen.efectiva" :key="'e' + i" class="flex flex-wrap items-center justify-between gap-2 px-6 py-2.5 text-sm">
+                    <span>
+                        {{ p.nombre }}
+                        <span v-if="p.parentesco" class="text-xs" :style="{ color: 'var(--color-suave)' }"> · {{ p.parentesco }}</span>
+                    </span>
+                    <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :style="{ backgroundColor: `color-mix(in srgb, ${p.origen === 'tutor' ? '#0d9488' : '#7c3aed'} 14%, transparent)`, color: p.origen === 'tutor' ? '#0d9488' : '#7c3aed' }">
+                        {{ p.origen === 'tutor' ? 'Tutor' : 'Autorizado' }}<span v-if="p.vigencia_hasta"> · hasta {{ p.vigencia_hasta }}</span>
+                    </span>
+                </li>
+            </ul>
+
+            <div v-if="recogen.terceros.length" class="border-t px-6 py-3" :style="{ borderColor: 'var(--color-borde)' }">
+                <h3 class="text-xs font-semibold uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Autorizados por ti</h3>
+                <ul class="mt-2 space-y-1.5">
+                    <li v-for="t in recogen.terceros" :key="t.id" class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span>
+                            {{ t.nombre }}
+                            <span v-if="t.identificacion" class="text-xs" :style="{ color: 'var(--color-suave)' }"> · {{ t.identificacion }}</span>
+                            <span v-if="!t.vigente" class="text-xs" :style="{ color: '#b45309' }"> · fuera de vigencia</span>
+                        </span>
+                        <button type="button" class="text-xs underline" :style="{ color: '#b91c1c' }" @click="quitarTercero(t.id)">Quitar</button>
+                    </li>
+                </ul>
+            </div>
+        </section>
 
         <!-- Accesos del hijo -->
         <!--

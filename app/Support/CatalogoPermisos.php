@@ -492,6 +492,7 @@ final class CatalogoPermisos
             'gestionar-percepciones' => ['Sueldos y percepciones', 'Ver y fijar cuánto se le paga a cada empleado, y administrar los conceptos de nómina.', [self::ADMINISTRATIVO]],
             'gestionar-bolsa-trabajo' => ['Gestionar la bolsa de trabajo', 'Registrar empleadores, publicar vacantes y dar seguimiento a las postulaciones.', [self::ADMINISTRATIVO]],
             'gestionar-autorizaciones' => ['Gestionar autorizaciones', 'Pedirle a los padres o tutores que autoricen salidas, uso de imagen y actividades.', [self::ADMINISTRATIVO]],
+            'gestionar-salida-segura' => ['Gestionar salida segura', 'Ver quién puede recoger a cada alumno y registrar bloqueos de custodia. Los terceros los agrega la familia; el bloqueo es una restricción legal que registra la escuela.', [self::ADMINISTRATIVO]],
             'editar-mi-expediente-tutor' => ['Editar mi expediente (tutor)', 'Que el padre o tutor suba los documentos que la escuela le pide a él.', [self::PADRE]],
             'ver-tutores' => ['Ver padres y tutores', 'Consultar el directorio de padres y tutores y a qué alumnos están vinculados.', [self::ADMINISTRATIVO]],
             // Separado de `ver-tutores` a propósito: quien consulta el

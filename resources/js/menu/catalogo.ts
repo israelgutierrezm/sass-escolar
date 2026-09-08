@@ -730,6 +730,12 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 permiso: 'gestionar-autorizaciones',
             },
             {
+                clave: 'salida-segura',
+                etiqueta: 'Salida segura',
+                prefijo: '/plataforma/salida-segura',
+                permiso: 'gestionar-salida-segura',
+            },
+            {
                 clave: 'encuestas',
                 etiqueta: 'Encuestas de evaluación',
                 prefijo: '/encuestas',

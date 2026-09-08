@@ -110,6 +110,7 @@ use App\Http\Controllers\Movilidad\RevalidacionController;
 use App\Http\Controllers\MovimientoEscolarController;
 use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\PadreController;
+use App\Http\Controllers\SalidaSeguraController;
 use App\Http\Controllers\PanoramaDocumentalController;
 use App\Http\Controllers\PasarelaPagoController;
 use App\Http\Controllers\PaseListaController;
@@ -2159,6 +2160,21 @@ Route::middleware([
                 Route::post('/', 'emitir')->name('emitir');
             });
 
+        /*
+         * Salida segura, lado ESCUELA: ver quién recoge a cada alumno y registrar
+         * BLOQUEOS de custodia. Permiso propio: la custodia es una restricción
+         * legal, distinta de pedir una autorización.
+         */
+        Route::controller(SalidaSeguraController::class)
+            ->prefix('plataforma/salida-segura')->name('tenant.plataforma.salida-segura.')
+            ->middleware('can:gestionar-salida-segura')
+            ->group(function () {
+                Route::get('/', 'panel')->name('index');
+                Route::get('{alumno}', 'alumno')->whereNumber('alumno')->name('alumno');
+                Route::post('{alumno}/bloquear', 'bloquear')->whereNumber('alumno')->name('bloquear');
+                Route::delete('bloqueos/{bloqueo}', 'desbloquear')->whereNumber('bloqueo')->name('desbloquear');
+            });
+
         Route::put('mis-hijos/autorizaciones/{autorizacion}', [AutorizacionController::class, 'responder'])
             ->whereNumber('autorizacion')
             ->middleware('can:ver-mis-hijos')
@@ -2168,6 +2184,18 @@ Route::middleware([
             ->whereNumber('autorizacion')
             ->middleware('can:ver-mis-hijos')
             ->name('tenant.padre.autorizaciones.revocar');
+
+        /*
+         * Salida segura, lado FAMILIA: agregar y retirar TERCEROS autorizados a
+         * recoger. Bajo `ver-mis-hijos` y con la pertenencia comprobada en el
+         * controlador —el id del hijo viaja por la URL—.
+         */
+        Route::middleware('can:ver-mis-hijos')->group(function () {
+            Route::post('mis-hijos/{hijo}/recogen', [SalidaSeguraController::class, 'agregarTercero'])
+                ->whereNumber('hijo')->name('tenant.padre.recogen.agregar');
+            Route::delete('mis-hijos/recogen/{autorizado}', [SalidaSeguraController::class, 'quitarTercero'])
+                ->whereNumber('autorizado')->name('tenant.padre.recogen.quitar');
+        });
 
         /*
          * Y el expediente del propio TUTOR: lo que la escuela le pide A ÉL.
