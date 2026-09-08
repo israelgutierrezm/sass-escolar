@@ -318,6 +318,17 @@ class AppServiceProvider extends ServiceProvider
             fn ($usuario) => $usuario->can('gestionar-presupuesto') || $usuario->can('registrar-egresos')
         );
 
+        /*
+         * Entrar a las cuentas por pagar. Dos oficios por la misma puerta: quien
+         * registra la obligación (`gestionar-cuentas-pagar`) y quien la paga
+         * (`pagar-proveedores`). Lo que cada uno puede HACER dentro lo resuelven
+         * las rutas de escritura, con su permiso; esta puerta sólo deja mirar.
+         */
+        Gate::define(
+            'ver-cuentas-pagar',
+            fn ($usuario) => $usuario->can('gestionar-cuentas-pagar') || $usuario->can('pagar-proveedores')
+        );
+
         Gate::define(
             'subir-material',
             fn ($usuario) => $usuario->can('capturar-calificaciones') || $usuario->can('editar-catalogo-academico')

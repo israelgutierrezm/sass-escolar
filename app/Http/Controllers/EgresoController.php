@@ -122,6 +122,15 @@ class EgresoController extends Controller
             'Ese egreso viene de un periodo de nómina: su importe es el neto de ese periodo y no se corrige aquí.',
         );
 
+        // Un egreso que es el pago de una cuenta por pagar tampoco se edita
+        // aquí: cambiar su monto descuadraría el saldo de la CxP. Se corrige
+        // revirtiendo el pago desde la cuenta por pagar.
+        AvisoParaElUsuario::si(
+            $egreso?->origen === Egreso::ORIGEN_CXP,
+            422,
+            'Ese egreso es el pago de una cuenta por pagar: corrígelo desde la cuenta, no aquí.',
+        );
+
         $archivo = $peticion->file('comprobante');
 
         if ($archivo !== null) {
@@ -165,6 +174,14 @@ class EgresoController extends Controller
             $egreso->vieneDeNomina(),
             422,
             'Ese egreso viene de un periodo de nómina. Si sobra, revisa el periodo: quitarlo de aquí dejaría el presupuesto sin el gasto más grande del mes.',
+        );
+
+        // El pago de una CxP se deshace desde la cuenta (que recompone su
+        // saldo), no borrando el egreso a secas.
+        AvisoParaElUsuario::si(
+            $egreso->origen === Egreso::ORIGEN_CXP,
+            422,
+            'Ese egreso es el pago de una cuenta por pagar. Para deshacerlo, revierte el pago desde la cuenta.',
         );
 
         $egreso->delete();

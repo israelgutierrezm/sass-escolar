@@ -44,7 +44,14 @@ que no son a un proveedor (un reembolso, una persona).
   moral, no a un plantel—, como `patrocinadores` y las cuentas bancarias.
 - Permiso `gestionar-proveedores`. Pantalla `/finanzas/proveedores`.
 
-### Rebanada 2 — Cuentas por pagar
+### Rebanada 2 — Cuentas por pagar ✅ (2026-09-08)
+
+**Nota de implementación**: los pagos se enlazan con `egresos.cuenta_por_pagar_id`
+(columna propia), NO reusando `egresos.origen_id` —el único
+`egreso_origen_unico (origen, origen_id, centro_costo_id)`, que existe para la
+idempotencia de la NÓMINA, impediría un segundo pago del mismo centro a la misma
+cuenta—. El egreso conserva `origen = 'cxp'` (para el guard) con `origen_id`
+NULL, y así las parcialidades conviven.
 
 `cuentas_por_pagar`: `proveedor_id`, `centro_costo_id`, `partida_id`, `ciclo_id`,
 `concepto`, `monto`, `fecha`, `vencimiento`, `estado`

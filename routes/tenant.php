@@ -52,6 +52,7 @@ use App\Http\Controllers\CorreoConfigController;
 use App\Http\Controllers\CredencialConfiguracionController;
 use App\Http\Controllers\CreditosEmisionController;
 use App\Http\Controllers\CuentaBancariaController;
+use App\Http\Controllers\CuentaPorPagarController;
 use App\Http\Controllers\CursoPlantillaController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DescuentoController;
@@ -1825,6 +1826,24 @@ Route::middleware([
                         Route::post('/', 'guardar')->name('store');
                         Route::post('/{proveedor}', 'guardar')->whereNumber('proveedor')->name('update');
                         Route::patch('/{proveedor}/activo', 'alternar')->whereNumber('proveedor')->name('activo');
+                    });
+
+                /*
+                 * Cuentas por pagar (rebanada 2). La puerta es `ver-cuentas-pagar`
+                 * (registrar O pagar); dentro, cada escritura pide su permiso:
+                 * registrar/corregir la obligación va con `gestionar-cuentas-pagar`
+                 * y pagarla (que asienta un egreso) con `pagar-proveedores`.
+                 */
+                Route::controller(CuentaPorPagarController::class)
+                    ->prefix('cuentas-pagar')->name('cuentas-pagar.')
+                    ->middleware('can:ver-cuentas-pagar')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->middleware('can:gestionar-cuentas-pagar')->name('store');
+                        Route::post('/{cuenta}', 'guardar')->whereNumber('cuenta')->middleware('can:gestionar-cuentas-pagar')->name('update');
+                        Route::patch('/{cuenta}/cancelar', 'cancelar')->whereNumber('cuenta')->middleware('can:gestionar-cuentas-pagar')->name('cancelar');
+                        Route::post('/{cuenta}/pagar', 'pagar')->whereNumber('cuenta')->middleware('can:pagar-proveedores')->name('pagar');
+                        Route::delete('/pagos/{egreso}', 'revertir')->whereNumber('egreso')->middleware('can:pagar-proveedores')->name('revertir');
                     });
 
                 Route::controller(CobranzaController::class)

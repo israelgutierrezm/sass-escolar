@@ -674,6 +674,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 prefijo: '/finanzas/proveedores',
                 hijos: [
                     { clave: 'proveedores', etiqueta: 'Proveedores', url: '/finanzas/proveedores', permiso: 'gestionar-proveedores', y: 'ver-adeudos' },
+                    { clave: 'cuentas-pagar', etiqueta: 'Cuentas por pagar', url: '/finanzas/cuentas-pagar', permiso: 'gestionar-cuentas-pagar', o: 'pagar-proveedores', y: 'ver-adeudos' },
                 ],
             },
             {

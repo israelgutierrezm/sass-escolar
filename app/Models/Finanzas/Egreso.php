@@ -47,6 +47,7 @@ class Egreso extends Model
         'fecha',
         'centro_costo_id',
         'proveedor_id',
+        'cuenta_por_pagar_id',
         'partida_id',
         'ciclo_id',
         'monto',
@@ -72,6 +73,12 @@ class Egreso extends Model
     public function proveedor(): BelongsTo
     {
         return $this->belongsTo(Proveedor::class, 'proveedor_id');
+    }
+
+    /** La cuenta por pagar que este egreso pagó, cuando es un pago a proveedor. */
+    public function cuentaPorPagar(): BelongsTo
+    {
+        return $this->belongsTo(CuentaPorPagar::class, 'cuenta_por_pagar_id');
     }
 
     public function partida(): BelongsTo

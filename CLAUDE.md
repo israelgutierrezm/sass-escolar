@@ -1834,6 +1834,44 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Finanzas · COMPRAS y cuentas por pagar, rebanada 2 (CUENTAS POR PAGAR)**
+  (2026-09-08). Lo que la escuela le debe a cada proveedor, con su vencimiento.
+  `/finanzas/cuentas-pagar`. Sigue a la rebanada 1; ver `docs/plan-compras-cxp.md`.
+  - **La invariante, en acción: PAGAR una CxP asienta un EGRESO** —ahí el dinero
+    «sale» y consume presupuesto—, y el **saldo y el estado se DERIVAN de esos
+    egresos**, nunca se teclean (molde del estatus del adeudo en
+    `RegistradorPago`). La CxP nunca cuenta como ejercido por sí sola, así que el
+    gasto no se cuenta dos veces.
+  - **LA TRAMPA que mordió, y su arreglo**: los pagos NO pueden reusar
+    `egresos.origen_id` para enlazarse a la CxP. El único
+    `egreso_origen_unico (origen, origen_id, centro_costo_id)` —que existe para
+    que **llevar la misma NÓMINA dos veces no duplique el gasto**— reventó con
+    `Duplicate entry` al segundo pago del mismo centro a la misma cuenta. El
+    enlace es una **columna propia, `egresos.cuenta_por_pagar_id`**; el egreso
+    conserva `origen = 'cxp'` (para el guard) con `origen_id` NULL, y así las
+    parcialidades conviven sin tocar la idempotencia de la nómina. Lo cazó la
+    suite en la primera corrida.
+  - **El pago va BAJO BLOQUEO**: `lockForUpdate` sobre la CxP y se relee el saldo,
+    así que dos cajeros pagando la misma cuenta a la vez no se pasan del total
+    —molde del bloqueo de adeudos—. Se comprueba midiendo el `SELECT … FOR
+    UPDATE` con `DB::listen`.
+  - **Con pagos, una CxP no se edita ni se cancela**: cambiar el monto dejaría el
+    saldo diciendo una cosa y los egresos otra. Se revierte el pago primero.
+    **Revertir** borra el egreso y recompone el estado.
+  - **El egreso de una CxP no se toca desde la pantalla de egresos** (como los de
+    nómina): editarlo o borrarlo ahí descuadraría el saldo. Se corrige desde la
+    cuenta.
+  - **Antigüedad de saldos**: lo que se debe, repartido por vencimiento, con lo
+    VENCIDO aparte (1–30 / 31–60 / +60) —es lo que el módulo viene a contestar—.
+  - **Dos oficios, dos permisos, una puerta**: `gestionar-cuentas-pagar`
+    (registrar/corregir la obligación) y `pagar-proveedores` (pagarla), y la
+    puerta derivada `ver-cuentas-pagar` (cualquiera de los dos) deja mirar. La
+    pantalla muestra los botones de cada uno según el permiso, y el servidor lo
+    vuelve a exigir por ruta.
+  - Pruebas: `scripts/prueba-cuentas-por-pagar.php`, 25 verificaciones, ocho
+    mutaciones (todas mueren, parseables). Sweep, phpunit y `npm run build`
+    verdes; auditoría del demo sin cambios.
+
 - **Finanzas · COMPRAS y cuentas por pagar, rebanada 1 (PROVEEDORES)**
   (2026-09-08, flujo 6.3 de la revisión de cinco módulos). Era **E**: no había
   `proveedores`/`ordenes_compra`/`cuentas_por_pagar` —los «Proveedor» del código
