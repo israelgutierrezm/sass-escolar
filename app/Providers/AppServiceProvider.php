@@ -329,6 +329,14 @@ class AppServiceProvider extends ServiceProvider
             fn ($usuario) => $usuario->can('gestionar-cuentas-pagar') || $usuario->can('pagar-proveedores')
         );
 
+        // Entrar a las órdenes de compra: quien las arma/recibe
+        // (`gestionar-ordenes-compra`) y quien las autoriza
+        // (`autorizar-ordenes-compra`). Cada acción pide el suyo dentro.
+        Gate::define(
+            'ver-ordenes-compra',
+            fn ($usuario) => $usuario->can('gestionar-ordenes-compra') || $usuario->can('autorizar-ordenes-compra')
+        );
+
         Gate::define(
             'subir-material',
             fn ($usuario) => $usuario->can('capturar-calificaciones') || $usuario->can('editar-catalogo-academico')

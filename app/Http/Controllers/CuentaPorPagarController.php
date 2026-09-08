@@ -11,6 +11,7 @@ use App\Models\Finanzas\CuentaPorPagar;
 use App\Models\Finanzas\Egreso;
 use App\Models\Finanzas\PartidaPresupuesto;
 use App\Models\Finanzas\Proveedor;
+use App\Services\Finanzas\GestorDeOrdenesCompra;
 use App\Services\Finanzas\RegistradorPagoProveedor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -101,6 +102,12 @@ class CuentaPorPagarController extends Controller
         AvisoParaElUsuario::aMenosQue($cuenta->estaAbierta(), 422, 'Esta cuenta no está abierta.');
 
         $cuenta->update(['estado' => CuentaPorPagar::CANCELADA]);
+
+        // Si nació de una orden de compra, cancelar la CxP DESHACE esa recepción:
+        // se recompone el estado de la OC para que vuelva a poder recibirse.
+        if ($cuenta->ordenCompra !== null) {
+            app(GestorDeOrdenesCompra::class)->recomputarEstado($cuenta->ordenCompra);
+        }
 
         return back(303)->with('exito', 'Cuenta cancelada.');
     }

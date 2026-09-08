@@ -64,6 +64,7 @@ class CuentaPorPagar extends Model
         'comprobante_nombre',
         'origen',
         'origen_id',
+        'orden_compra_id',
     ];
 
     protected function casts(): array
@@ -93,6 +94,12 @@ class CuentaPorPagar extends Model
     public function ciclo(): BelongsTo
     {
         return $this->belongsTo(Ciclo::class, 'ciclo_id');
+    }
+
+    /** La orden de compra que la generó, cuando nació de una. */
+    public function ordenCompra(): BelongsTo
+    {
+        return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
     }
 
     /**

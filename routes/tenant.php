@@ -112,6 +112,7 @@ use App\Http\Controllers\Movilidad\MovilidadController;
 use App\Http\Controllers\Movilidad\RevalidacionController;
 use App\Http\Controllers\MovimientoEscolarController;
 use App\Http\Controllers\OfertaController;
+use App\Http\Controllers\OrdenCompraController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\SalidaSeguraController;
 use App\Http\Controllers\PanoramaDocumentalController;
@@ -1844,6 +1845,24 @@ Route::middleware([
                         Route::patch('/{cuenta}/cancelar', 'cancelar')->whereNumber('cuenta')->middleware('can:gestionar-cuentas-pagar')->name('cancelar');
                         Route::post('/{cuenta}/pagar', 'pagar')->whereNumber('cuenta')->middleware('can:pagar-proveedores')->name('pagar');
                         Route::delete('/pagos/{egreso}', 'revertir')->whereNumber('egreso')->middleware('can:pagar-proveedores')->name('revertir');
+                    });
+
+                /*
+                 * Órdenes de compra (rebanada 3). Puerta `ver-ordenes-compra`;
+                 * armar/recibir va con `gestionar-ordenes-compra` y autorizar
+                 * (que la vuelve compromiso) con `autorizar-ordenes-compra`.
+                 * Recibir genera la cuenta por pagar.
+                 */
+                Route::controller(OrdenCompraController::class)
+                    ->prefix('ordenes-compra')->name('ordenes-compra.')
+                    ->middleware('can:ver-ordenes-compra')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->middleware('can:gestionar-ordenes-compra')->name('store');
+                        Route::post('/{orden}', 'guardar')->whereNumber('orden')->middleware('can:gestionar-ordenes-compra')->name('update');
+                        Route::post('/{orden}/autorizar', 'autorizar')->whereNumber('orden')->middleware('can:autorizar-ordenes-compra')->name('autorizar');
+                        Route::post('/{orden}/recibir', 'recibir')->whereNumber('orden')->middleware('can:gestionar-ordenes-compra')->name('recibir');
+                        Route::patch('/{orden}/cancelar', 'cancelar')->whereNumber('orden')->middleware('can:gestionar-ordenes-compra')->name('cancelar');
                     });
 
                 Route::controller(CobranzaController::class)

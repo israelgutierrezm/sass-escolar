@@ -71,7 +71,7 @@ capturar directa (una factura que llegó) o nacer de una orden de compra
 - Permisos `gestionar-cuentas-pagar` y `pagar-proveedores` (dos oficios: quien
   registra la obligación no es siempre quien autoriza el pago).
 
-### Rebanada 3 — Órdenes de compra
+### Rebanada 3 — Órdenes de compra ✅ (2026-09-08) · CIERRA EL MÓDULO
 
 `ordenes_compra` + `orden_compra_conceptos`: proveedor, centro, partida, ciclo,
 conceptos (descripción, cantidad, precio), `estado`

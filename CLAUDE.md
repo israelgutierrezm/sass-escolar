@@ -1834,6 +1834,44 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Finanzas · COMPRAS y cuentas por pagar, rebanada 3 (ÓRDENES DE COMPRA) ·
+  CIERRA EL MÓDULO** (2026-09-08). Un compromiso de compra que al recibirse genera
+  la cuenta por pagar. `/finanzas/ordenes-compra`. Ver `docs/plan-compras-cxp.md`.
+  - **El ciclo completo, sin romper la invariante**: la OC se arma en borrador,
+    se AUTORIZA (y ahí es un compromiso), y al RECIBIRSE genera la CxP —la
+    obligación de pagar lo recibido—. **La OC NO crea egreso**: el egreso nace al
+    pagar la CxP (rebanada 2). Así el ejercido sigue teniendo una sola fuente
+    (`egresos`) y el gasto no se cuenta en tres sitios.
+  - **Lo RECIBIDO se DERIVA de las CxP que la OC generó** (`cuentas_por_pagar`
+    con `origen = 'orden_compra'` y `orden_compra_id` = la OC, sin las
+    canceladas), no de un contador que se desincronice. `porRecibir()` = total −
+    recibido, y el total sale de los conceptos.
+  - **Recepción PARCIAL**: se recibe por monto; la OC pasa a `recibida` mientras
+    quede saldo y a `cerrada` al completarse. **Bajo bloqueo de la OC**
+    (`lockForUpdate`): dos recepciones a la vez no pasan de lo pedido —comprobado
+    con `DB::listen` sobre el `FOR UPDATE`—.
+  - **Cancelar una CxP de la OC DESHACE su recepción**, y por eso
+    `CuentaPorPagarController::cancelar` **recompone el estado de la OC**
+    (`GestorDeOrdenesCompra::recomputarEstado`): sin esto, la OC quedaría
+    «cerrada» con saldo por recibir y sin poder recibir otra vez. Lo fija una
+    mutación.
+  - **Dos oficios, dos permisos, una puerta**: `gestionar-ordenes-compra`
+    (armar/recibir) y `autorizar-ordenes-compra` (aprobar —quien pide no aprueba
+    el gasto—), con la puerta derivada `ver-ordenes-compra`.
+  - **DOS mutaciones sobrevivieron por GUARD REDUNDANTE, y se retiraron los
+    guards** (lección de los mutantes equivalentes, `$diseno->exists`): el
+    «no tiene conceptos» de autorizar lo cubre el `total > 0` (una orden vacía
+    suma cero), y el «tiene recepciones» de cancelar lo cubre el guard de estado
+    (recibir siempre avanza el estado más allá de `autorizada`, así que una
+    autorizada nunca tiene recepciones). Se dejó el guard que de verdad manda y
+    se mutó ése.
+  - Pruebas: `scripts/prueba-ordenes-compra.php`, 21 verificaciones, siete
+    mutaciones (todas mueren, parseables). Sweep, phpunit y `npm run build`
+    verdes; auditoría del demo sin cambios.
+  - **Con esto el módulo 6.3 (Compras / cuentas por pagar) queda CERRADO**:
+    proveedores → órdenes de compra → cuentas por pagar → pago (egreso), NO
+    contabilidad, con el ejercido siempre en una sola fuente.
+
 - **Finanzas · COMPRAS y cuentas por pagar, rebanada 2 (CUENTAS POR PAGAR)**
   (2026-09-08). Lo que la escuela le debe a cada proveedor, con su vencimiento.
   `/finanzas/cuentas-pagar`. Sigue a la rebanada 1; ver `docs/plan-compras-cxp.md`.
