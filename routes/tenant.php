@@ -2557,6 +2557,7 @@ Route::middleware([
                         Route::post('/', 'store')->name('crear');
                         Route::put('{regla}', 'update')->whereNumber('regla')->name('guardar');
                         Route::post('{regla}/versiones', 'versionar')->whereNumber('regla')->name('versionar');
+                        Route::post('{regla}/simular', 'simular')->whereNumber('regla')->name('simular');
                         Route::patch('{regla}/activa', 'alternar')->whereNumber('regla')->name('activa');
                         Route::delete('{regla}', 'destroy')->whereNumber('regla')->name('eliminar');
                     });

@@ -162,6 +162,9 @@ class HandleInertiaRequests extends Middleware
                  * encima, que es la comparación que hay que hacer.
                  */
                 'propuesta' => fn () => $request->session()->get('propuesta'),
+                // La simulación de una regla de permanencia: tampoco es un
+                // mensaje, son los conteos de a quién marcaría un umbral candidato.
+                'simulacion' => fn () => $request->session()->get('simulacion'),
             ],
         ];
     }

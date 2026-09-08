@@ -20,6 +20,7 @@ use App\Models\Permanencia\ReglaAlertaVersion;
 use App\Permanencia\CatalogoMetricas;
 use App\Services\Permanencia\IndicadoresDePermanencia;
 use App\Services\Permanencia\PlantillaDeAviso;
+use App\Services\Permanencia\SimuladorDeReglas;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -178,6 +179,41 @@ class ReglaAlertaController extends Controller
 
         return back(303)->with('exito',
             'Se emitió una versión nueva. Las alertas abiertas conservan la anterior.');
+    }
+
+    /**
+     * Previsualiza a quién marcaría un umbral candidato, SIN encender ni escribir.
+     *
+     * Es la respuesta al sesgo de calibración del módulo: se prueba un umbral,
+     * se ve cuántas mediciones dispararían y cuántas quedan sin datos, y se
+     * ajusta antes de emitir la versión. El proveedor sale de la métrica
+     * CANDIDATA —puede diferir de la guardada—; el alcance y la categoría, de la
+     * regla. La muestra se acota al campus de quien simula y se calla para las
+     * categorías sensibles: calibrar necesita el CUÁNTOS, no exponer quiénes.
+     */
+    public function simular(Request $peticion, ReglaAlerta $regla, SimuladorDeReglas $simulador): RedirectResponse
+    {
+        $datos = $peticion->validate([
+            'metrica' => ['required', 'string', Rule::in(CatalogoMetricas::claves())],
+            'comparador' => ['required', Rule::in(ReglaAlertaVersion::COMPARADORES)],
+            'umbral' => ['nullable', 'numeric'],
+            'umbral_fuente' => ['required', Rule::in([ReglaAlertaVersion::FUENTE_FIJA, ReglaAlertaVersion::FUENTE_PLAN])],
+            'ventana_tipo' => ['required', Rule::in(ReglaAlertaVersion::VENTANAS)],
+            'ventana_valor' => ['nullable', 'integer', 'min:1', 'max:3650'],
+            'cobertura_minima' => ['required', 'integer', 'min:0', 'max:9999'],
+        ], ['metrica.in' => 'Esa métrica no existe: elige una de las que el sistema sabe calcular.']);
+
+        // En memoria, sin guardar: el proveedor sale de la métrica candidata.
+        $regla->loadMissing('categoria');
+        $regla->proveedor = CatalogoMetricas::de($datos['metrica'])['proveedor'];
+
+        $resultado = $simulador->simular(
+            $regla,
+            new ReglaAlertaVersion($datos),
+            $peticion->user()?->campusVisibles(),
+        );
+
+        return back(303)->with('simulacion', array_merge($resultado, ['regla_id' => $regla->id]));
     }
 
     /**

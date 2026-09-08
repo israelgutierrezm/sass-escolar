@@ -59,6 +59,13 @@ class MotorDeEvaluacion
     /** Por lotes: esto corre de madrugada sobre la escuela entera. */
     private const LOTE = 200;
 
+    /** Los tres resultados de medir una regla sobre una matrícula. */
+    public const SIN_DATOS = 'sin_datos';
+
+    public const DISPARA = 'dispara';
+
+    public const NO_DISPARA = 'no_dispara';
+
     /** La corrida en curso, para que las filas de riesgo la apunten. */
     private ?int $corridaActual = null;
 
@@ -342,6 +349,24 @@ class MotorDeEvaluacion
     }
 
     /**
+     * El veredicto PURO de una medición: sin datos, dispara o no dispara.
+     *
+     * Es la decisión de fondo, ANTES de mirar la historia (alerta abierta,
+     * enfriamiento). Vive en un solo sitio a propósito: la usa `resolver` para
+     * levantar/cerrar, y el {@see SimuladorDeReglas} para previsualizar a quién
+     * marcaría una regla sin escribir nada. Escrita dos veces, el simulador
+     * prometería una cosa y el motor de madrugada haría otra.
+     */
+    public function veredictoDe(ReglaAlertaVersion $version, Medicion $medicion, ?float $umbral): string
+    {
+        if (! $medicion->hayDato() || $medicion->cobertura < $version->cobertura_minima) {
+            return self::SIN_DATOS;
+        }
+
+        return $version->cruza($medicion->valor, $umbral) ? self::DISPARA : self::NO_DISPARA;
+    }
+
+    /**
      * El umbral: el fijo, o el del PLAN.
      *
      * Leerlo del plan y no copiarlo es lo que impide que corregir el plan deje
@@ -349,7 +374,7 @@ class MotorDeEvaluacion
      * null, y una comparación contra null no cruza nunca — que es el lado que no
      * molesta a nadie.
      */
-    private function umbralDe(ReglaAlertaVersion $version, MatriculaOferta $matricula): ?float
+    public function umbralDe(ReglaAlertaVersion $version, MatriculaOferta $matricula): ?float
     {
         if ($version->umbral_fuente !== ReglaAlertaVersion::FUENTE_PLAN) {
             return $version->umbral;
@@ -379,7 +404,9 @@ class MotorDeEvaluacion
          * docente que deja de pasar lista no cura la inasistencia—. La alerta se
          * queda como está y su fecha de última evaluación lo dice.
          */
-        if (! $medicion->hayDato() || $medicion->cobertura < $version->cobertura_minima) {
+        $veredicto = $this->veredictoDe($version, $medicion, $umbral);
+
+        if ($veredicto === self::SIN_DATOS) {
             $contadores['sin_datos']++;
 
             return;
@@ -392,7 +419,7 @@ class MotorDeEvaluacion
             ->where('asignatura_grupo_id', $medicion->asignaturaGrupoId)
             ->first();
 
-        if (! $version->cruza($medicion->valor, $umbral)) {
+        if ($veredicto === self::NO_DISPARA) {
             /*
              * Dejó de ser cierta: se RESUELVE con la evidencia de la mejora.
              *

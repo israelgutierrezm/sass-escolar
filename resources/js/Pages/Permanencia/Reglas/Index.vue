@@ -19,7 +19,7 @@
  * pulsa y no sale ni una petición, sin un solo error en la consola. Es el
  * defecto que ya se pagó en la fase 1 del módulo formativo.
  */
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 import BotonPrincipal from '@/Components/BotonPrincipal.vue';
@@ -229,6 +229,42 @@ function guardar(): void {
     } else if (editando.value) {
         router.put(`/permanencia/reglas/${editando.value.id}`, datos.value, opciones);
     }
+}
+
+const page = usePage();
+const simulando = ref(false);
+
+/* La simulación llega por flash; se muestra sólo si es de la regla abierta. */
+const simulacion = computed(() => {
+    const s = (page.props as any).flash?.simulacion;
+
+    return s && versionando.value && s.regla_id === versionando.value.id ? s : null;
+});
+
+/*
+ * Previsualiza a quién marcaría el umbral candidato SIN encender ni escribir.
+ * Manda sólo lo que la regla mide —el resto de la versión (severidad, avisos)
+ * no cambia a quién señala—.
+ */
+function simular(): void {
+    if (!versionando.value) return;
+
+    simulando.value = true;
+
+    router.post(`/permanencia/reglas/${versionando.value.id}/simular`, {
+        metrica: datos.value.metrica,
+        comparador: datos.value.comparador,
+        umbral: datos.value.umbral,
+        umbral_fuente: datos.value.umbral_fuente,
+        ventana_tipo: datos.value.ventana_tipo,
+        ventana_valor: datos.value.ventana_valor,
+        cobertura_minima: datos.value.cobertura_minima,
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+        onError: (e: Record<string, string>) => (errores.value = e),
+        onFinish: () => (simulando.value = false),
+    });
 }
 
 function alternar(regla: Regla): void {
@@ -692,8 +728,59 @@ const textos = (clave: string) => (props.catalogos[clave] ?? []) as string[];
                         </p>
                     </fieldset>
 
-                    <div class="flex items-center gap-3 pt-2">
+                    <!--
+                        Simular ANTES de emitir: la calibración es el sesgo
+                        dominante de este módulo. No escribe nada —es una
+                        previsualización— y respeta el campus de quien la corre.
+                    -->
+                    <div
+                        v-if="simulacion"
+                        class="rounded-lg border p-4 text-sm"
+                        :style="{ borderColor: 'var(--color-borde)', backgroundColor: 'color-mix(in srgb, var(--color-acento) 5%, transparent)' }"
+                    >
+                        <template v-if="simulacion.error">
+                            <p :style="{ color: '#b45309' }">{{ simulacion.error }}</p>
+                        </template>
+                        <template v-else>
+                            <p>
+                                Con este umbral, hoy marcaría
+                                <strong>{{ simulacion.dispara }}</strong> medición(es)
+                                sobre <strong>{{ simulacion.alumnos_marcados }}</strong> alumno(s),
+                                de <strong>{{ simulacion.alcanzadas }}</strong> que alcanza.
+                            </p>
+                            <p class="mt-1" :style="{ color: 'var(--color-suave)' }">
+                                <template v-if="simulacion.sin_datos_pct === null">Nada que medir en tu alcance.</template>
+                                <template v-else>
+                                    {{ simulacion.sin_datos }} sin datos ({{ simulacion.sin_datos_pct }} %) — si son
+                                    muchos, la regla no está midiendo, no es que nadie la cumpla.
+                                </template>
+                            </p>
+                            <p v-if="simulacion.capado" class="mt-1 text-xs" :style="{ color: '#b45309' }">
+                                Muestra de las primeras {{ simulacion.tope }} matrículas: la cifra es un piso.
+                            </p>
+
+                            <ul v-if="simulacion.muestra.length" class="mt-2 space-y-0.5 text-xs">
+                                <li v-for="(m, i) in simulacion.muestra" :key="i" :style="{ color: 'var(--color-suave)' }">
+                                    {{ m.alumno }}<span v-if="m.matricula"> · {{ m.matricula }}</span> — {{ m.valor }}
+                                </li>
+                            </ul>
+                            <p v-else-if="simulacion.sensible" class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                                Es una categoría sensible: se dice cuántos, no quiénes.
+                            </p>
+                        </template>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 pt-2">
                         <BotonPrincipal :procesando="procesando" texto="Emitir la versión" icono="crear" />
+                        <button
+                            type="button"
+                            class="rounded-lg border px-4 py-2 text-sm disabled:opacity-50"
+                            :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                            :disabled="simulando"
+                            @click="simular"
+                        >
+                            {{ simulando ? 'Simulando…' : 'Simular sin encender' }}
+                        </button>
                         <button type="button" class="rounded-lg border border-borde px-4 py-2 text-sm" @click="cerrar">
                             Cancelar
                         </button>
