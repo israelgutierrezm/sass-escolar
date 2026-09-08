@@ -40,9 +40,13 @@ class Egreso extends Model
 
     protected $attributes = ['origen' => self::ORIGEN_CAPTURA];
 
+    /** Traído del pago de una cuenta por pagar (rebanada 2). */
+    public const ORIGEN_CXP = 'cxp';
+
     protected $fillable = [
         'fecha',
         'centro_costo_id',
+        'proveedor_id',
         'partida_id',
         'ciclo_id',
         'monto',
@@ -63,6 +67,11 @@ class Egreso extends Model
     public function centro(): BelongsTo
     {
         return $this->belongsTo(CentroCosto::class, 'centro_costo_id');
+    }
+
+    public function proveedor(): BelongsTo
+    {
+        return $this->belongsTo(Proveedor::class, 'proveedor_id');
     }
 
     public function partida(): BelongsTo

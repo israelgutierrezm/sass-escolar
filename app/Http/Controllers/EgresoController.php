@@ -9,6 +9,7 @@ use App\Models\ControlEscolar\Ciclo;
 use App\Models\Finanzas\CentroCosto;
 use App\Models\Finanzas\Egreso;
 use App\Models\Finanzas\PartidaPresupuesto;
+use App\Models\Finanzas\Proveedor;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -53,7 +54,7 @@ class EgresoController extends Controller
         $partida = (int) $peticion->query('partida', 0);
 
         $consulta = Egreso::query()
-            ->with(['centro:id,nombre', 'partida:id,nombre'])
+            ->with(['centro:id,nombre', 'partida:id,nombre', 'proveedor:id,nombre'])
             ->when($ciclo > 0, fn ($q) => $q->where('ciclo_id', $ciclo))
             ->when($centro > 0, fn ($q) => $q->where('centro_costo_id', $centro))
             ->when($partida > 0, fn ($q) => $q->where('partida_id', $partida));
@@ -68,6 +69,8 @@ class EgresoController extends Controller
                 'partida' => $e->partida?->nombre,
                 'monto' => (float) $e->monto,
                 'descripcion' => $e->descripcion,
+                'proveedor' => $e->proveedor?->nombre,
+                'proveedor_id' => $e->proveedor_id,
                 'beneficiario' => $e->beneficiario,
                 'referencia' => $e->referencia,
                 'comprobante' => $e->comprobante_nombre,
@@ -84,6 +87,10 @@ class EgresoController extends Controller
                 ->map(fn (CentroCosto $c) => ['valor' => $c->id, 'texto' => $c->nombre]),
             'partidas' => PartidaPresupuesto::query()->activas()->orderBy('nombre')->get(['id', 'nombre'])
                 ->map(fn (PartidaPresupuesto $p) => ['valor' => $p->id, 'texto' => $p->nombre]),
+            // Los proveedores activos, para estructurar el beneficiario. Opcional:
+            // un egreso puede no ser a un proveedor (un reembolso, una persona).
+            'proveedores' => Proveedor::query()->activos()->orderBy('nombre')->get(['id', 'nombre'])
+                ->map(fn (Proveedor $p) => ['valor' => $p->id, 'texto' => $p->nombre]),
         ]);
     }
 
@@ -92,6 +99,7 @@ class EgresoController extends Controller
         $datos = $peticion->validate([
             'fecha' => ['required', 'date'],
             'centro_costo_id' => ['required', 'integer', Rule::exists('centros_costo', 'id')],
+            'proveedor_id' => ['nullable', 'integer', Rule::exists('proveedores', 'id')],
             'partida_id' => ['required', 'integer', Rule::exists('partidas_presupuesto', 'id')],
             'ciclo_id' => ['required', 'integer', Rule::exists('ciclos', 'id')],
             'monto' => ['required', 'numeric', 'min:0.01'],

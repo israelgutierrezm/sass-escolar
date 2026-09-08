@@ -1834,6 +1834,38 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Finanzas · COMPRAS y cuentas por pagar, rebanada 1 (PROVEEDORES)**
+  (2026-09-08, flujo 6.3 de la revisión de cinco módulos). Era **E**: no había
+  `proveedores`/`ordenes_compra`/`cuentas_por_pagar` —los «Proveedor» del código
+  son los del motor de Permanencia—. **Decidido con el cliente**: compras
+  completo en TRES rebanadas (Proveedores → CxP → Órdenes de compra), y **NO es
+  contabilidad** (sin validar CFDI recibidos como prueba fiscal, sin pólizas, sin
+  cuentas contables, sin DIOT). **El diseño de las tres vive en
+  `docs/plan-compras-cxp.md`**.
+  - **La invariante que lo cose con lo que ya hay: el EJERCIDO tiene UNA sola
+    fuente, `egresos`** (rebanada 3.6), y no se toca. Por eso un proveedor
+    ESTRUCTURA el `beneficiario` del egreso (hoy texto libre) en vez de crear una
+    segunda verdad; una CxP será una obligación que al pagarse REGISTRA un egreso
+    (rebanada 2); una orden de compra será un compromiso que al recibirse genera
+    la CxP (rebanada 3). Así «ejercido» sigue significando lo mismo y se audita
+    renglón por renglón.
+  - **`proveedores`**: `nombre`, `rfc` (nullable pero ÚNICO —el mismo capturado
+    dos veces reparte sus egresos entre duplicados, como `empresas` de la
+    bolsa—), razón social, contacto, `activo` (se APAGA, no se borra: sus egresos
+    son historia), notas. **Institucional, sin acotar por campus** —un proveedor
+    le factura a la persona moral—, como patrocinadores y las cuentas bancarias.
+  - **`egresos.proveedor_id` es nullable a propósito**: hay egresos que no son a
+    un proveedor (un reembolso, una persona), y para ésos se queda el
+    `beneficiario` libre. El formulario de egresos ofrece un selector de
+    proveedor (sólo ACTIVOS) y conserva el «a quién se le pagó» para lo demás.
+  - Permiso `gestionar-proveedores`. Pantalla `/finanzas/proveedores`, y un
+    subgrupo «Compras» nuevo en el menú de Finanzas (pasó de 7 a 8 entradas de
+    primer nivel —la prueba del menú lo fija—).
+  - Pruebas: `scripts/prueba-proveedores.php`, 14 verificaciones, cinco
+    mutaciones (todas mueren, comprobado que parsean). Verificado sin navegador
+    (login de personas): controladores por HTTP con la cabecera `X-Inertia`,
+    `npm run build`, auditoría del demo sin cambios.
+
 - **Familia · CITAS familia–docente** (2026-09-08, sexto flujo de la revisión de
   cinco módulos). Que una familia pida reunión con el docente de su hijo, el
   docente confirme o rechace, y no se encimen dos. **El diseño vive en

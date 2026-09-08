@@ -24,6 +24,8 @@ interface Egreso {
     partida: string | null;
     monto: number;
     descripcion: string;
+    proveedor: string | null;
+    proveedor_id: number | null;
     beneficiario: string | null;
     referencia: string | null;
     comprobante: string | null;
@@ -37,6 +39,7 @@ const props = defineProps<{
     ciclos: { valor: number; texto: string }[];
     centros: { valor: number; texto: string }[];
     partidas: { valor: number; texto: string }[];
+    proveedores: { valor: number; texto: string }[];
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -51,6 +54,7 @@ function vacio() {
     return {
         fecha: hoyLocal(),
         centro_costo_id: props.centros[0]?.valor ?? 0,
+        proveedor_id: null as number | null,
         partida_id: props.partidas[0]?.valor ?? 0,
         ciclo_id: props.filtros.ciclo,
         monto: '',
@@ -87,6 +91,7 @@ function abrirEdicion(e: Egreso): void {
     alta.fecha = e.fecha ?? hoyLocal();
     alta.monto = String(e.monto);
     alta.descripcion = e.descripcion;
+    alta.proveedor_id = e.proveedor_id ?? null;
     alta.beneficiario = e.beneficiario ?? '';
     alta.referencia = e.referencia ?? '';
     alta.ciclo_id = props.filtros.ciclo;
@@ -149,7 +154,8 @@ function retirar(e: Egreso): void {
                     <CampoSelect v-model="alta.centro_costo_id" etiqueta="Centro de costo" :opciones="centros" requerido :error="alta.errors.centro_costo_id" />
                     <CampoSelect v-model="alta.partida_id" etiqueta="Partida" :opciones="partidas" requerido :error="alta.errors.partida_id" />
                     <CampoTexto v-model="alta.monto" tipo="number" paso="0.01" min="0.01" etiqueta="Importe" requerido :error="alta.errors.monto" />
-                    <CampoTexto v-model="alta.beneficiario" etiqueta="A quién se le pagó" :error="alta.errors.beneficiario" />
+                    <CampoSelect v-model="alta.proveedor_id" etiqueta="Proveedor" :opciones="proveedores" vacio="Sin proveedor" :error="alta.errors.proveedor_id" />
+                                        <CampoTexto v-model="alta.beneficiario" etiqueta="A quién se le pagó (si no es un proveedor)" :error="alta.errors.beneficiario" />
                     <CampoTexto v-model="alta.referencia" etiqueta="Referencia" :error="alta.errors.referencia" ayuda="Folio de la factura, número de cheque…" />
                     <div class="sm:col-span-2">
                         <CampoTexto v-model="alta.descripcion" etiqueta="En qué se gastó" requerido :error="alta.errors.descripcion" />
@@ -183,8 +189,8 @@ function retirar(e: Egreso): void {
                                 <td class="px-6 py-3 whitespace-nowrap">{{ e.fecha }}</td>
                                 <td class="px-4 py-3">
                                     <span class="block break-words">{{ e.descripcion }}</span>
-                                    <span v-if="e.beneficiario || e.referencia" class="block text-[11px]" :style="{ color: 'var(--color-suave)' }">
-                                        {{ e.beneficiario }}<template v-if="e.referencia"> · {{ e.referencia }}</template>
+                                    <span v-if="e.proveedor || e.beneficiario || e.referencia" class="block text-[11px]" :style="{ color: 'var(--color-suave)' }">
+                                        {{ e.proveedor ?? e.beneficiario }}<template v-if="e.referencia"> · {{ e.referencia }}</template>
                                     </span>
                                     <a v-if="e.comprobante" class="text-[11px] underline" :href="`/finanzas/egresos/${e.id}/comprobante`">{{ e.comprobante }}</a>
                                     <!--
@@ -217,7 +223,8 @@ function retirar(e: Egreso): void {
                                         <CampoSelect v-model="alta.centro_costo_id" etiqueta="Centro de costo" :opciones="centros" requerido :error="alta.errors.centro_costo_id" />
                                         <CampoSelect v-model="alta.partida_id" etiqueta="Partida" :opciones="partidas" requerido :error="alta.errors.partida_id" />
                                         <CampoTexto v-model="alta.monto" tipo="number" paso="0.01" min="0.01" etiqueta="Importe" requerido :error="alta.errors.monto" />
-                                        <CampoTexto v-model="alta.beneficiario" etiqueta="A quién se le pagó" :error="alta.errors.beneficiario" />
+                                        <CampoSelect v-model="alta.proveedor_id" etiqueta="Proveedor" :opciones="proveedores" vacio="Sin proveedor" :error="alta.errors.proveedor_id" />
+                                        <CampoTexto v-model="alta.beneficiario" etiqueta="A quién se le pagó (si no es un proveedor)" :error="alta.errors.beneficiario" />
                                         <CampoTexto v-model="alta.referencia" etiqueta="Referencia" :error="alta.errors.referencia" />
                                         <div class="sm:col-span-2">
                                             <CampoTexto v-model="alta.descripcion" etiqueta="En qué se gastó" requerido :error="alta.errors.descripcion" />

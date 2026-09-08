@@ -147,6 +147,7 @@ use App\Http\Controllers\ProcesosFormativos\SeguimientoFormativoController;
 use App\Http\Controllers\ProcesosFormativos\SupervisionController;
 use App\Http\Controllers\ProcesosFormativos\SupervisorExternoController;
 use App\Http\Controllers\ProgramaAcademicoController;
+use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\RecuperacionController;
 use App\Http\Controllers\RecursosDigitalesController;
 use App\Http\Controllers\ReglaHorarioController;
@@ -1813,6 +1814,17 @@ Route::middleware([
                         Route::post('/{egreso}', 'guardar')->whereNumber('egreso')->name('update');
                         Route::get('/{egreso}/comprobante', 'descargar')->whereNumber('egreso')->name('comprobante');
                         Route::delete('/{egreso}', 'eliminar')->whereNumber('egreso')->name('destroy');
+                    });
+
+                // Compras y cuentas por pagar (rebanada 1: proveedores).
+                Route::controller(ProveedorController::class)
+                    ->prefix('proveedores')->name('proveedores.')
+                    ->middleware('can:gestionar-proveedores')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/', 'guardar')->name('store');
+                        Route::post('/{proveedor}', 'guardar')->whereNumber('proveedor')->name('update');
+                        Route::patch('/{proveedor}/activo', 'alternar')->whereNumber('proveedor')->name('activo');
                     });
 
                 Route::controller(CobranzaController::class)

@@ -53,7 +53,7 @@ for (const g of CATALOGO_MENU) {
 console.log('== Sin disposición guardada (el caso de una escuela nueva)');
 const limpio = construirNavegacion(null, TODOS, 'administrativo', [], MODULOS);
 const finanzas = limpio.find((n) => n.clave === 'finanzas')!;
-verificar('Finanzas baja de 22 entradas de primer nivel a 7', finanzas.hijos.length === 7, String(finanzas.hijos.length));
+verificar('Finanzas baja de 22 entradas de primer nivel a 8 (Cartera + 7 subgrupos)', finanzas.hijos.length === 8, String(finanzas.hijos.length));
 
 const todas = claves(limpio);
 const repetidas = todas.filter((c, i) => todas.indexOf(c) !== i);
@@ -89,7 +89,9 @@ const todas2 = claves(conVieja);
 const repes2 = todas2.filter((c, i) => todas2.indexOf(c) !== i);
 
 verificar('no se duplica ni una entrada', repes2.length === 0, repes2.join(', '));
-verificar('se respeta que la escuela las dejó sueltas', fin2.hijos.length === 22, String(fin2.hijos.length));
+// Las 22 sueltas se conservan, y el subgrupo NUEVO (Compras, que la disposición
+// vieja no tenía) se agrega: 22 + 1 = 23.
+verificar('se respeta que la escuela las dejó sueltas y se agrega el subgrupo nuevo', fin2.hijos.length === 23, String(fin2.hijos.length));
 const perdidas2 = hojasAdmin.filter((c) => !todas2.includes(c));
 verificar('tampoco se pierde ninguna hoja', perdidas2.length === 0, perdidas2.join(', '));
 
