@@ -1834,6 +1834,54 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Familia · SALIDA SEGURA, rebanada 1** (2026-09-07, quinto flujo de la
+  revisión de cinco módulos; pedido del cliente, con sus decisiones). Quién puede
+  recoger a un alumno. **El diseño completo de las tres rebanadas vive en
+  `docs/plan-salida-segura.md`**, escrito ANTES de tocar una tabla porque toca la
+  seguridad de un menor.
+  - **Qué había**: NADA. Verificado —`tutores_alumno` no tiene bandera de
+    recoger, y `checadas` es el reloj del PERSONAL, no la salida del alumno—. Y
+    no gatea nada más: la salida es informativa/operativa, así que el alcance de
+    esta rebanada es el registro + las reglas.
+  - **Decisiones del cliente**: (1) validación en la puerta con lista de
+    autorizados + **QR validado por el SERVIDOR**; (2) recogen los tutores + los
+    terceros que la familia agrega (con identificación); (3) **custodia SÍ**: se
+    puede marcar a alguien como NO autorizado, y el servidor lo rechaza aunque
+    sea tutor.
+  - **`autorizados_recoger`**: una fila AUTORIZA (`permitido=true`, un tercero) o
+    BLOQUEA (`permitido=false`, custodia). Los tutores NO se copian aquí: se
+    autorizan por su vínculo salvo que un bloqueo lo diga —copiarlos crearía un
+    segundo padrón que se separaría del vínculo—. `persona_id` es nullable a
+    propósito: a quien recoge no se le pide cuenta (una abuela no la tiene).
+  - **`PuedeRecoger` vive en UN sitio, y el orden importa: el BLOQUEO gana.**
+    Custodia > tutor > tercero autorizado vigente > nadie. Un progenitor
+    legalmente impedido no recoge aunque sea el padre. Lo comparten la pantalla
+    de la familia, la del administrador y —rebanada 2— la puerta y el registro de
+    salida. Escrita dos veces, la puerta autorizaría a quien la pantalla muestra
+    bloqueado.
+  - **Dos actores, dos puertas.** La FAMILIA agrega y retira TERCEROS de SUS
+    hijos (`/mis-hijos`, con la pertenencia comprobada porque el id viaja por la
+    URL; 404 y no 403 sobre un hijo ajeno). La ESCUELA registra los BLOQUEOS de
+    custodia (permiso propio `gestionar-salida-segura`), con **motivo
+    obligatorio** —sin él nadie explica dentro de un año por qué se rechazó a esa
+    persona—. La familia NO puede tocar un bloqueo, y la escuela no inventa a la
+    abuela que autoriza la familia: una restricción legal no la declara un
+    familiar sobre otro.
+  - **El motivo del bloqueo es SENSIBLE**: no sale al portal de la familia del
+    otro progenitor.
+  - **`gestionar-salida-segura` se sumó al gate derivado `dirigir-a-alumnos`**,
+    para reusar `/buscar/alumnos` —el mismo buscador de avisos y autorizaciones—
+    sin un segundo buscador.
+  - Pruebas: `scripts/prueba-salida-segura.php`, 19 verificaciones, comprobadas
+    mutando **6 reglas** (el bloqueo que no gana sobre el tutor, la vigencia
+    ignorada, la familia tocando un bloqueo, la pertenencia sin comprobar, el
+    motivo no obligatorio y la lista efectiva sin excluir bloqueados).
+  - **Rebanada 2, PENDIENTE**: el token/QR por autorizado, la pantalla del
+    guardia (escanea alumno + persona, el servidor valida contra el estado
+    ACTUAL —un QR de alguien ya bloqueado se rechaza aunque el papel circule—),
+    `salidas_alumno` (registro de entrega con quién/cuándo/cómo) y el aviso a los
+    responsables por el canal de avisos.
+
 - **Familia · VIGENCIA y REVOCACIÓN de autorizaciones** (2026-09-07, cuarto
   flujo de la revisión de cinco módulos). Una autorización concedida ya puede
   CADUCAR y dejar de contar, y revocarla quedó distinto de negarla.
