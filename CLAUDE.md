@@ -1834,6 +1834,50 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **Familia · VIGENCIA y REVOCACIÓN de autorizaciones** (2026-09-07, cuarto
+  flujo de la revisión de cinco módulos). Una autorización concedida ya puede
+  CADUCAR y dejar de contar, y revocarla quedó distinto de negarla.
+  - **Qué había y qué faltaba**: `autorizaciones` tenía `fecha_limite` —el plazo
+    para CONTESTAR— y `concedida` (null/true/false). Una concedida contaba PARA
+    SIEMPRE, y revocar (cambiar la respuesta a false) era indistinguible de
+    negar. Verificado: no había vigencia del permiso ni marca de revocación, y
+    el propio docblock prometía «un consentimiento de uso de imagen se revoca»
+    sin que hubiera con qué. Y no gatea nada más: las autorizaciones son
+    informativas, así que el alcance era el modelo de estados + la pantalla.
+  - **`vigencia_hasta` es OTRA cosa que `fecha_limite`.** El primero es hasta
+    cuándo VALE lo concedido; el segundo, hasta cuándo se puede contestar. Se
+    puede contestar a tiempo algo que vale sólo su día (una salida). Vacía =
+    permanente (uso de imagen). Al pasar la vigencia, la concedida CADUCA sin
+    que nadie la toque.
+  - **`estaEnVigor()` es la definición ÚNICA de «cuenta»**: concedida, no
+    revocada y dentro de su vigencia. El conteo del administrador (SQL) y el
+    estado del portal (`estado()`) preguntan aquí, así que no pueden decir «en
+    vigor» sobre lo que ya no vale. Una prueba CRUZA el conteo SQL contra el
+    `estado()` de PHP.
+  - **Revocar NO se ata al plazo de respuesta.** Retirar un consentimiento
+    vigente es un derecho: se puede aunque `fecha_limite` ya pasó —el de uso de
+    imagen—. `puedeRevocar()` es sólo `estaEnVigor()`: no se revoca una caducada
+    (ya no vale), ni una negada (no se concedió), ni una pendiente; y la de otro
+    vínculo responde 404, como `responder`.
+  - **Revocar conserva `concedida=true`** y marca `revocada_en`: revocar no es
+    negar, y el estado y el conteo los separan. El «quién» lo lleva `updated_by`
+    (auditoría), así que una columna aparte sería un segundo dato de lo mismo.
+  - **El administrador ve el estado REAL**: «en vigor / caducadas / revocadas /
+    no autorizaron / sin contestar», no «concedidas» a secas —una concedida que
+    caducó o se revocó dejó de valer—. El emisor captura la vigencia; el portal
+    de la familia muestra el estado y el botón «Revocar» para lo que está en
+    vigor.
+  - **`puede_responder` pasó a ser sólo pendiente-o-negada dentro del plazo**:
+    una concedida se RETIRA con revocar, no se «cambia a negada» —una segunda
+    forma de deshacer, con otro estado, confundiría—. El servidor `responder`
+    no cambió (sigue gateado por `admiteRespuesta`); lo que se afinó es qué
+    ofrece la pantalla.
+  - Pruebas: `scripts/prueba-autorizaciones-vigencia.php`, 34 verificaciones,
+    comprobadas mutando **7 reglas** (en vigor ignorando la vigencia y la
+    revocación, `estado` caducada que dice «en vigor», `puedeRevocar` siempre
+    true, el guard del controlador, la validación de la vigencia y el `SUM` del
+    conteo). La suite vieja (14) sigue verde.
+
 - **Permanencia · SIMULADOR de reglas** (2026-09-07, tercer flujo de la revisión
   de cinco módulos). Previsualizar a quién marcaría un umbral candidato ANTES de
   encender la regla, sin generar alertas.
