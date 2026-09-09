@@ -49,6 +49,14 @@ return [
             'driver' => 'session',
             'provider' => 'super_admins',
         ],
+
+        // La APP MÓVIL: autentica por token (Sanctum), no por cookie de sesión.
+        // Mismo proveedor de usuarios que la web —son las mismas personas del
+        // tenant—; el token vive en `personal_access_tokens` de la escuela.
+        'sanctum' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
+        ],
     ],
 
     /*

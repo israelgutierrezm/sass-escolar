@@ -1834,6 +1834,57 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
   - Pruebas: `scripts/prueba-permanencia-reglas.php`, 63 verificaciones,
     comprobadas mutando **28 reglas**.
 
+- **APP MÓVIL (Flutter) · rebanada 1: el CIMIENTO de la API** (2026-09-08, pedido
+  del cliente). El sistema era 100% Inertia y **no tenía API**; ésta es la
+  primera. **El diseño y el roadmap viven en `docs/plan-app-movil.md`**. Primer
+  público decidido con el cliente: **ALUMNO**.
+  - **Token, no sesión.** La app autentica con **Sanctum** (`auth:sanctum`), no
+    con la cookie de la web. `HasApiTokens` en `Usuario`, guard `sanctum` en
+    `config/auth.php`. **El token vive en `personal_access_tokens` del TENANT**
+    —el login es de personas de la escuela—, así que su tabla la crea una
+    migración de `tenant/`. **Sanctum v4 quitó `ignoreMigrations()`** (da «Call
+    to undefined method») y ya NO corre su migración por su cuenta —sólo la
+    PUBLICA con `publishesMigrations`—, así que no hay copia huérfana en la
+    central y basta la migración del tenant. (Trampa nueva: `composer require`
+    dejó el paquete en `vendor` pero NO regeneró el autoloader; hizo falta
+    `composer dump-autoload`.)
+  - **La primera pantalla no es el login: es «¿a qué escuela hablo?».** La
+    escuela se resuelve por DOMINIO y la central NO indexa correos, así que la
+    app manda un **CÓDIGO de escuela** (el *slug* del tenant, p. ej. `demo`) a un
+    endpoint CENTRAL `GET /api/v1/escuelas/{codigo}` → `{codigo, nombre, dominio}`.
+    Público, GET (sin CSRF) y por código EXACTO: no lista escuelas ni deja
+    enumerarlas. El login, con credenciales, va después contra el dominio que
+    esto devuelve.
+  - **La regla de CÓMO se encuentra la cuenta vive en UN sitio**
+    (`App\Services\Acceso\ResolutorDeCuenta`): correo o CURP, prefiriendo la real
+    sobre la de censo, con su mensaje. La comparten `LoginRequest` (web) y
+    `AccesoApiController` (app). Escrita dos veces, la app dejaría entrar por una
+    puerta que la web cierra. La API verifica el hash con `Hash::check` (mismo
+    hasher que `Auth::attempt`) SIN abrir sesión, y con la misma limitación por
+    intentos (5 por identificador+IP).
+  - **La API del tenant va en un grupo APARTE, SIN `web`** (en
+    `routes/tenant.php`): sin cookie de sesión ni CSRF —autentica por token—, con
+    la tenencia por dominio y `PreventAccessFromCentralDomains`. Versionada
+    (`/api/v1`): un cliente publicado no se actualiza a la vez que el servidor.
+    Endpoints: `POST /acceso` (público → token + usuario), `GET /yo` (auth),
+    `POST /salir` (auth, revoca SÓLO el token de ESTE dispositivo con
+    `currentAccessToken()->delete()`).
+  - El `usuario` trae lo que decide la interfaz: **facetas** (alumno, docente,
+    padre…, vía `Rol::faceta()`), roles y `rol_activo_id`. Los permisos finos
+    viajan con cada pantalla, no aquí.
+  - **phpunit NO llega por HTTP a una ruta de tenant** (se resuelve por dominio),
+    así que la suite `scripts/prueba-api-acceso.php` (17 verif, 6 mut) invoca los
+    controladores con rollback, y el flujo entero se comprobó **por HTTP real**
+    contra el servidor: código→dominio (404 al inexistente), login→token,
+    credencial mala→422, `/yo` con y sin token→200/401, `salir`→revoca (el 405 de
+    método y el 401 sin token los pone el middleware, no el controlador). Sweep
+    158 verdes, phpunit 753, auditoría del demo sin cambios (69), y los tokens de
+    la prueba de humo se borraron.
+  - **Rebanadas siguientes**: 2 = la app Flutter (proyecto sibling `acadion-app`)
+    con el flujo de acceso; 3 = datos y pantallas del alumno (resolver el rol
+    activo para la API y exponer mis materias / historial / estado de cuenta /
+    avisos, reusando los servicios que ya existen).
+
 - **Finanzas · COMPRAS y cuentas por pagar, rebanada 3 (ÓRDENES DE COMPRA) ·
   CIERRA EL MÓDULO** (2026-09-08). Un compromiso de compra que al recibirse genera
   la cuenta por pagar. `/finanzas/ordenes-compra`. Ver `docs/plan-compras-cxp.md`.

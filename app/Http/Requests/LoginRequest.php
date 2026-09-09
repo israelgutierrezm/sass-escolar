@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
-use App\Models\Identidad\Usuario;
+use App\Services\Acceso\ResolutorDeCuenta;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -59,7 +59,8 @@ class LoginRequest extends FormRequest
     {
         $this->asegurarQueNoEstaBloqueado();
 
-        $usuario = $this->resolverUsuario((string) $this->input('identificador'));
+        $resolutor = app(ResolutorDeCuenta::class);
+        $usuario = $resolutor->porIdentificador((string) $this->input('identificador'));
         $password = (string) $this->input('password');
 
         // Se autentica por id ya resuelto: así el correo y la CURP comparten un
@@ -67,44 +68,14 @@ class LoginRequest extends FormRequest
         if ($usuario === null || ! Auth::attempt(['id' => $usuario->id, 'password' => $password], $this->boolean('recordarme'))) {
             RateLimiter::hit($this->llaveDeIntentos());
 
-            // Mensaje útil para las cuentas de censo: existen pero todavía no
-            // tienen contraseña de acceso, así que ninguna contraseña entra.
-            if ($usuario !== null && ! $usuario->acceso_configurado) {
-                throw ValidationException::withMessages([
-                    'identificador' => 'Tu cuenta todavía no tiene acceso configurado. Pídele a tu escuela que te lo habilite.',
-                ]);
-            }
-
+            // El mensaje sale del resolutor, para que la web y la app digan lo
+            // mismo (incluida la cuenta de censo, que existe sin contraseña).
             throw ValidationException::withMessages([
-                'identificador' => 'Las credenciales no coinciden con nuestros registros.',
+                'identificador' => $resolutor->mensajeDeFallo($usuario),
             ]);
         }
 
         RateLimiter::clear($this->llaveDeIntentos());
-    }
-
-    /**
-     * La cuenta que corresponde al identificador: por correo, o por CURP como
-     * alternativa. Se prefiere una cuenta con acceso configurado cuando dos
-     * comparten correo, para que la de censo no le gane a la real.
-     */
-    private function resolverUsuario(string $identificador): ?Usuario
-    {
-        $identificador = trim($identificador);
-
-        if ($identificador === '') {
-            return null;
-        }
-
-        $consulta = Usuario::query()->orderByDesc('acceso_configurado');
-
-        if (Str::contains($identificador, '@')) {
-            return $consulta->where('email', $identificador)->first();
-        }
-
-        return $consulta
-            ->whereHas('persona', fn ($p) => $p->where('curp', strtoupper($identificador)))
-            ->first();
     }
 
     private function asegurarQueNoEstaBloqueado(): void

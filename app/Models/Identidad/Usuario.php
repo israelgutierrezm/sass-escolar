@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * usuarios (TENANT) — credenciales de acceso de una persona.
@@ -20,6 +21,9 @@ use Illuminate\Notifications\Notifiable;
  */
 class Usuario extends Authenticatable
 {
+    // La app móvil autentica por TOKEN (Sanctum), no por la cookie de sesión de
+    // la web: los tokens viven en `personal_access_tokens` de la escuela.
+    use HasApiTokens;
     use Notifiable;
     use TieneAuditoria;
 

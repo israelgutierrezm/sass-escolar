@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\BuscadorDeEscuelaController;
 use App\Http\Controllers\Central\AutenticacionCentralController;
 use App\Http\Controllers\Central\CreditosController;
 use App\Http\Controllers\Central\EscuelaController;
@@ -38,6 +39,12 @@ foreach (config('tenancy.central_domains') as $dominioCentral) {
          */
         Route::get('/auth/google/callback', [SsoGoogleCentralController::class, 'callback'])
             ->name('central.sso.google.callback.'.$dominioCentral);
+
+        // La app móvil pregunta AQUÍ, antes de saber a qué escuela pertenece:
+        // traduce un código de escuela a su dominio. Público (corre antes del
+        // acceso) y GET (sin CSRF). Nombre por dominio central, como el callback.
+        Route::get('/api/v1/escuelas/{codigo}', [BuscadorDeEscuelaController::class, 'mostrar'])
+            ->name('central.api.escuela.'.$dominioCentral);
 
         // Acceso de la casa (super admins).
         Route::get('/', [AutenticacionCentralController::class, 'mostrarLogin'])->name('central.login');

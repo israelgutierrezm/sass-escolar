@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\AccesosController;
+use App\Http\Controllers\Api\AccesoApiController;
 use App\Http\Controllers\ActividadAspiranteController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\AlumnoController;
@@ -3881,5 +3882,34 @@ Route::middleware([
             Route::redirect($vieja, '/'.$nueva, 301);
             Route::redirect($vieja.'/{resto}', '/'.$nueva.'/{resto}', 301)->where('resto', '.*');
         }
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
+| API de la app móvil (tenant)
+|--------------------------------------------------------------------------
+|
+| Grupo APARTE del de arriba: SIN `web`, así que no hay cookie de sesión ni
+| CSRF —la app autentica por TOKEN (Sanctum), no por sesión—. Sí lleva la
+| inicialización de tenencia por dominio (la escuela sale del subdominio) y
+| PreventAccessFromCentralDomains (esto no existe en el dominio central: allí
+| sólo vive la traducción de código→dominio).
+|
+| El acceso es público (cambia credenciales por token); lo demás exige el token
+| con el guard `sanctum`.
+|
+*/
+Route::middleware([
+    'throttle:120,1',
+    Illuminate\Routing\Middleware\SubstituteBindings::class,
+    InitializeTenancyByDomain::class,
+    PreventAccessFromCentralDomains::class,
+])->prefix('api/v1')->name('tenant.api.')->group(function () {
+    Route::post('acceso', [AccesoApiController::class, 'acceso'])->name('acceso');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('yo', [AccesoApiController::class, 'yo'])->name('yo');
+        Route::post('salir', [AccesoApiController::class, 'salir'])->name('salir');
     });
 });
