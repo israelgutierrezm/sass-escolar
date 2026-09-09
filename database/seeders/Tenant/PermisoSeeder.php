@@ -81,6 +81,7 @@ class PermisoSeeder extends Seeder
             'ver-recursos-digitales', 'solicitar-servicios', 'ver-vacantes',
             'ver-mi-proceso-formativo',
             'ver-mi-seguimiento',
+            'solicitar-factura',
         ],
         // El interesado llena lo suyo desde `/mi-solicitud`. No ve nada más:
         // su alcance es su propia persona, no un permiso amplio.
@@ -90,7 +91,7 @@ class PermisoSeeder extends Seeder
         // Ahora lo hay, en `tutorias`, y su portal resuelve el alcance por
         // pertenencia igual que el del padre y el del docente.
         'tutor_educativo' => ['ver-mis-tutorados', 'ver-historial-academico'],
-        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor', 'ver-conducta-hijo'],
+        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor', 'ver-conducta-hijo', 'solicitar-factura'],
         // El supervisor externo entra a SU portal y valida lo de SUS
         // expedientes. Reusa `aprobar-horas-formativas` y
         // `revisar-informes-formativos` —la misma acción que el administrativo,

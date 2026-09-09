@@ -118,6 +118,7 @@ use App\Http\Controllers\OfertaController;
 use App\Http\Controllers\OrdenCompraController;
 use App\Http\Controllers\PadreController;
 use App\Http\Controllers\SalidaSeguraController;
+use App\Http\Controllers\SolicitudFacturaController;
 use App\Http\Controllers\PanoramaDocumentalController;
 use App\Http\Controllers\PasarelaPagoController;
 use App\Http\Controllers\PaseListaController;
@@ -1730,6 +1731,22 @@ Route::middleware([
                     });
 
                 /*
+                 * La bandeja de SOLICITUDES de factura del autoservicio. Emitir
+                 * desde aquí es un acto fiscal, así que va con `facturar`, el
+                 * mismo permiso que emitir a mano. Solicitar (el alumno) y
+                 * descargar (el alumno) viven en el grupo de `FinanzasController`,
+                 * con `ver-adeudos` y acotadas por el trait de la cartera.
+                 */
+                Route::controller(SolicitudFacturaController::class)
+                    ->prefix('solicitudes-factura')->name('solicitudes-factura.')
+                    ->middleware('can:facturar')
+                    ->group(function () {
+                        Route::get('/', 'index')->name('index');
+                        Route::post('/{solicitud}/emitir', 'emitir')->whereNumber('solicitud')->name('emitir');
+                        Route::post('/{solicitud}/rechazar', 'rechazar')->whereNumber('solicitud')->name('rechazar');
+                    });
+
+                /*
                  * Razones sociales. Configurar con qué persona moral factura
                  * cada programa académico es distinto de emitir un CFDI: lo primero lo
                  * define la dirección una vez, lo segundo se hace a diario.
@@ -1918,6 +1935,18 @@ Route::middleware([
                         ->middleware('can:condonar-adeudos')
                         ->name('adeudos.resolver');
                 });
+
+                /*
+                 * Autoservicio de factura: el alumno o su familia SOLICITA (no
+                 * emite) y descarga su CFDI. `ver-adeudos` los deja entrar y el
+                 * trait de la cartera cierra a quién; solicitar pide además el
+                 * permiso propio y que la escuela haya abierto el canal (404 si
+                 * no). La descarga la acota el controlador, como el recibo.
+                 */
+                Route::post('/cuentas/{matricula}/solicitar-factura', [SolicitudFacturaController::class, 'solicitar'])
+                    ->whereNumber('matricula')->middleware('can:solicitar-factura')->name('solicitar-factura');
+                Route::get('/solicitudes-factura/{solicitud}/cfdi/{tipo}', [SolicitudFacturaController::class, 'descargarCfdi'])
+                    ->whereNumber('solicitud')->name('solicitud-cfdi');
             });
 
         /*

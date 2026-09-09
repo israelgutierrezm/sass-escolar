@@ -76,6 +76,8 @@ final class CatalogoAjustes
     // Finanzas.
     public const ABONO_MINIMO = 'finanzas.abono_minimo';
 
+    public const FACTURA_AUTOSERVICIO_SOLICITUD = 'facturacion.autoservicio_solicitud';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -362,6 +364,28 @@ final class CatalogoAjustes
                 min: 0,
                 max: 100000,
                 consecuencia: 'Por debajo de este importe el pago en línea se rehúsa y se le dice el mínimo a quien iba a abonar. No toca los cargos ya emitidos ni la transferencia con comprobante, que la revisa una persona.',
+            ),
+
+            new Ajuste(
+                clave: self::FACTURA_AUTOSERVICIO_SOLICITUD,
+                grupo: 'Finanzas',
+                etiqueta: 'Dejar que el alumno y su familia SOLICITEN su factura',
+                descripcion: 'Encendido, aparece «Solicitar factura» en el estado de cuenta del alumno y en '
+                    .'el portal de la familia: dejan constancia de que la quieren y con qué datos fiscales, y la '
+                    .'escuela la emite desde su bandeja. Apagado, la factura la pide sólo el personal. En ningún '
+                    .'caso el alumno EMITE el CFDI —eso es un acto administrativo a nombre de la escuela—.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión: una escuela recién migrada no tiene su
+                 * facturación conectada al PAC ni sus perfiles fiscales
+                 * capturados, y abrir el canal antes llenaría la bandeja de
+                 * solicitudes que no se pueden atender. Se enciende cuando la
+                 * facturación ya opera. Mismo criterio que la postulación
+                 * autogestiva de la bolsa.
+                 */
+                porDefecto: false,
+                consecuencia: 'Apagarlo esconde el botón de solicitar; NO borra las solicitudes ni las facturas '
+                    .'ya emitidas, ni cambia lo que la escuela debe declarar.',
             ),
 
             new Ajuste(

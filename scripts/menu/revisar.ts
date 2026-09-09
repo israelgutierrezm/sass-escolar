@@ -89,9 +89,10 @@ const todas2 = claves(conVieja);
 const repes2 = todas2.filter((c, i) => todas2.indexOf(c) !== i);
 
 verificar('no se duplica ni una entrada', repes2.length === 0, repes2.join(', '));
-// Las 22 sueltas se conservan, y el subgrupo NUEVO (Compras, que la disposición
-// vieja no tenía) se agrega: 22 + 1 = 23.
-verificar('se respeta que la escuela las dejó sueltas y se agrega el subgrupo nuevo', fin2.hijos.length === 23, String(fin2.hijos.length));
+// Las 22 sueltas se conservan, y se agregan los subgrupos con hojas que la
+// disposición vieja no traía: Compras (entero), y Facturación —podado a su hoja
+// NUEVA «Solicitudes de factura», ya que las otras tres están sueltas—. 22+2=24.
+verificar('se respeta que la escuela las dejó sueltas y se agrega el subgrupo nuevo', fin2.hijos.length === 24, String(fin2.hijos.length));
 const perdidas2 = hojasAdmin.filter((c) => !todas2.includes(c));
 verificar('tampoco se pierde ninguna hoja', perdidas2.length === 0, perdidas2.join(', '));
 

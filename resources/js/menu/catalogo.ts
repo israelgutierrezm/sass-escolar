@@ -655,6 +655,7 @@ export const CATALOGO_MENU: GrupoMenu[] = [
                 prefijo: '/finanzas/facturas',
                 hijos: [
                     { clave: 'facturas', etiqueta: 'Facturas', url: '/finanzas/facturas', permiso: 'facturar', y: 'ver-adeudos' },
+                    { clave: 'solicitudes-factura', etiqueta: 'Solicitudes de factura', url: '/finanzas/solicitudes-factura', permiso: 'facturar', y: 'ver-adeudos' },
                     { clave: 'emisores', etiqueta: 'Razones sociales', url: '/finanzas/emisores', permiso: 'gestionar-emisores', y: 'ver-adeudos' },
                     { clave: 'cierre-fiscal', etiqueta: 'Cierre fiscal', url: '/finanzas/cierre', permiso: 'cerrar-periodo-fiscal', y: 'ver-adeudos' },
                 ],

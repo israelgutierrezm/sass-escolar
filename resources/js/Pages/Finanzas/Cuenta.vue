@@ -9,6 +9,7 @@ import BotonPrincipal from '@/Components/BotonPrincipal.vue';
 import CampoTexto from '@/Components/CampoTexto.vue';
 import CampoSelect from '@/Components/CampoSelect.vue';
 import PanelPagoEnLinea from '@/Components/PanelPagoEnLinea.vue';
+import PanelSolicitarFactura from '@/Components/PanelSolicitarFactura.vue';
 import { hoyLocal } from '@/utils/fechas';
 
 /** Un ajuste que movió el monto: beca, descuento o recargo. Monto CON signo. */
@@ -128,12 +129,29 @@ const props = defineProps<{
     facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
     /** Mínimo para abonar en línea. 0 = sin mínimo. */
     abonoMinimo: number;
+    /** Autoservicio de factura: el panel de solicitar (si el canal está abierto) y el historial. */
+    puedeSolicitarFactura: boolean;
+    facturaAutoservicio: {
+        pagos: { id: number; monto: number; metodo: string | null; momento: string | null; concepto: string | null }[];
+        receptor: { rfc: string | null; razon_social: string | null; uso_cfdi: string | null; regimen_fiscal: string | null; cp: string | null; correo: string | null } | null;
+        catalogos: { usos_cfdi: { clave: string; texto: string }[]; regimenes: { clave: string; texto: string }[] };
+    } | null;
+    solicitudesFactura: {
+        id: number; estado: string; operaciones: number; receptor_rfc: string; motivo_rechazo: string | null;
+        factura: { uuid: string | null; estatus: string; descargable: boolean } | null; solicitada_en: string | null;
+    }[];
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
 const cobrando = ref(false);
 const seleccionados = ref<number[]>([]);
+
+const solicitandoFactura = ref(false);
+
+function etiquetaSolicitud(estado: string): string {
+    return { pendiente: 'En revisión', emitida: 'Factura emitida', rechazada: 'Rechazada' }[estado] ?? estado;
+}
 
 /*
  * Pago en línea. Comparte la MISMA selección de cargos que el cobro en
@@ -909,6 +927,58 @@ function firmarConvenio(): void {
             <p v-else class="px-6 py-10 text-center text-sm" :style="{ color: 'var(--color-suave)' }">
                 Sin pagos registrados.
             </p>
+        </section>
+
+        <!--
+            Autoservicio de factura: solicitar y consultar las propias. El panel
+            aparece con el canal abierto; el historial se enseña siempre, porque
+            apagar el canal esconde el botón, no lo ya pedido.
+        -->
+        <section v-if="puedeSolicitarFactura || solicitudesFactura.length" class="tarjeta overflow-hidden">
+            <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                <h2 class="text-base font-semibold">Facturación</h2>
+                <button
+                    v-if="puedeSolicitarFactura"
+                    type="button"
+                    class="rounded-lg border px-4 py-2 text-sm font-medium"
+                    :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                    @click="solicitandoFactura = !solicitandoFactura"
+                >
+                    {{ solicitandoFactura ? 'Cancelar' : 'Solicitar factura' }}
+                </button>
+            </header>
+
+            <div v-if="solicitandoFactura && facturaAutoservicio" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <PanelSolicitarFactura
+                    :matricula-id="matricula.id"
+                    :pagos="facturaAutoservicio.pagos"
+                    :receptor="facturaAutoservicio.receptor"
+                    :catalogos="facturaAutoservicio.catalogos"
+                />
+            </div>
+
+            <div v-if="solicitudesFactura.length" class="border-t px-6 py-4" :style="{ borderColor: 'var(--color-borde)' }">
+                <p class="mb-2 text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Mis solicitudes</p>
+                <ul class="space-y-2 text-sm">
+                    <li v-for="s in solicitudesFactura" :key="s.id" class="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                            {{ s.solicitada_en }} · {{ s.operaciones }} {{ s.operaciones === 1 ? 'operación' : 'operaciones' }} · {{ s.receptor_rfc }}
+                            <span class="block text-xs" :style="{ color: s.estado === 'rechazada' ? 'var(--color-peligro)' : 'var(--color-suave)' }">
+                                {{ etiquetaSolicitud(s.estado) }}<template v-if="s.motivo_rechazo">: {{ s.motivo_rechazo }}</template>
+                            </span>
+                        </span>
+                        <a
+                            v-if="s.factura?.descargable"
+                            :href="`/finanzas/solicitudes-factura/${s.id}/cfdi/pdf`"
+                            target="_blank"
+                            class="text-xs font-medium"
+                            :style="{ color: 'var(--color-acento)' }"
+                        >
+                            Descargar CFDI
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </section>
 
         <section v-if="permisos.facturar && facturas.length" class="tarjeta overflow-hidden">

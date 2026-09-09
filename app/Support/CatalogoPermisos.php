@@ -564,6 +564,7 @@ final class CatalogoPermisos
             'registrar-pagos' => ['Registrar pagos', 'Cobrar, confirmar y revertir pagos; generar cargos.', [self::ADMINISTRATIVO]],
             'condonar-adeudos' => ['Condonar y cancelar cargos', 'Perdonar un adeudo. Exige motivo y queda en la bitácora.', [self::ADMINISTRATIVO]],
             'facturar' => ['Emitir CFDI', 'Facturar, cancelar y refacturar. Es un acto fiscal a nombre de la escuela.', [self::ADMINISTRATIVO]],
+            'solicitar-factura' => ['Solicitar su factura', 'Que el alumno y su familia PIDAN factura de sus pagos, para que la escuela la emita. No es emitir el CFDI —eso es «Emitir CFDI»—: es dejar la solicitud con sus datos fiscales.', [self::ALUMNO, self::PADRE]],
             'gestionar-planes-cobro' => ['Configurar el cobro', 'Definir montos, periodicidades y reglas de generación de cargos.', [self::ADMINISTRATIVO]],
             'gestionar-emisores' => ['Administrar razones sociales', 'Dar de alta personas morales y cargar sus certificados de sello digital.', [self::ADMINISTRATIVO]],
             'cerrar-periodo-fiscal' => ['Cerrar el periodo fiscal', 'Declarar un mes cerrado, con lo que deja de poderse cancelar un comprobante suyo. Es un acto de supervisión, aparte de emitir CFDI todos los días.', [self::ADMINISTRATIVO]],

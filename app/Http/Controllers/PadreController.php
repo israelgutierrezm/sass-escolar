@@ -22,6 +22,7 @@ use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
 use App\Services\Familia\RepresentacionDelTutor;
+use App\Services\Finanzas\AutoservicioFactura;
 use App\Services\HistorialDelAlumno;
 use App\Services\Pagos\Pasarelas;
 use App\Services\Plataforma\ModulosDeLaEscuela;
@@ -107,6 +108,13 @@ class PadreController extends Controller
 
         AvisoParaElUsuario::si($vinculo === null, 403, 'Este alumno no está vinculado a tu cuenta.');
 
+        // El autoservicio de factura: el canal abierto por la escuela, el permiso
+        // de faceta, y que este vínculo alcance lo financiero. Las tres, como los
+        // saldos.
+        $puedeSolicitarFactura = $vinculo->puede_ver_finanzas
+            && $request->user()->can('solicitar-factura')
+            && app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_SOLICITUD);
+
         $matriculas = $hijo->matriculas()
             ->with([
                 'oferta.programaAcademico:id,nombre',
@@ -151,8 +159,9 @@ class PadreController extends Controller
                 ? $matriculas->map(fn (MatriculaOferta $m) => $this->academicoDe($m))->values()
                 : null,
             'finanzas' => $vinculo->puede_ver_finanzas
-                ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m))->values()
+                ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m, $puedeSolicitarFactura))->values()
                 : null,
+            'puedeSolicitarFactura' => $puedeSolicitarFactura,
             /*
              * Con qué puede pagar aquí mismo.
              *
@@ -420,9 +429,10 @@ class PadreController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function finanzasDe(MatriculaOferta $m): array
+    private function finanzasDe(MatriculaOferta $m, bool $puedeSolicitar = false): array
     {
         $cuenta = $this->estadoCuenta->para($m);
+        $autoservicio = app(AutoservicioFactura::class);
 
         $facturas = Factura::query()
             ->where('matricula_oferta_id', $m->id)
@@ -445,6 +455,11 @@ class PadreController extends Controller
             'adeudos' => $cuenta['adeudos'],
             'pagos' => $cuenta['pagos'],
             'facturas' => $facturas,
+            // El mismo autoservicio del estado de cuenta del alumno, por el
+            // mismo servicio. El panel sólo con el canal abierto; el historial
+            // siempre.
+            'factura_autoservicio' => $puedeSolicitar ? $autoservicio->datosParaSolicitar($m) : null,
+            'solicitudes_factura' => $autoservicio->solicitudesDe($m),
         ];
     }
 }

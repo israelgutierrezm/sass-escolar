@@ -21,6 +21,7 @@ use App\Models\Finanzas\SituacionPago;
 use App\Services\CalculadorRecargos;
 use App\Services\ConvenioDePago;
 use App\Services\EstadoCuenta;
+use App\Services\Finanzas\AutoservicioFactura;
 use App\Services\Finanzas\SaldosDeCartera;
 use App\Services\GeneradorAdeudos;
 use App\Services\Pagos\Pasarelas;
@@ -279,6 +280,16 @@ class FinanzasController extends Controller
                     'total' => (float) $f->total,
                     'fecha_timbrado' => $f->fecha_timbrado?->toDateTimeString(),
                 ])->values(),
+            /*
+             * Autoservicio de factura. El panel de «Solicitar» sólo aparece con
+             * el canal abierto y quien mira con permiso (el alumno y su familia;
+             * el personal factura por su bandeja). La LISTA de solicitudes se
+             * enseña siempre: apagar el canal esconde el botón, no el historial.
+             */
+            'puedeSolicitarFactura' => $puedeSolicitar = app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_SOLICITUD)
+                && $request->user()->can('solicitar-factura'),
+            'facturaAutoservicio' => $puedeSolicitar ? app(AutoservicioFactura::class)->datosParaSolicitar($matricula) : null,
+            'solicitudesFactura' => app(AutoservicioFactura::class)->solicitudesDe($matricula),
         ]);
     }
 

@@ -52,7 +52,7 @@ Un solo sistema coherente: `FacturaController` → `EmisorFactura` →
 Cada una es un flujo completo y verificable. Se construyen en este orden porque
 1 es el cimiento de las demás.
 
-### Rebanada 1 — Perfil fiscal unificado + catálogos SAT ⏳ (en curso)
+### Rebanada 1 — Perfil fiscal unificado + catálogos SAT ✅ (2026-09-09)
 
 Cimiento, bajo riesgo, complementa sin romper. Resuelve **R06.05** (receptor ≠
 estudiante, un solo perfil) y **R06.06** (perfil nominativo con catálogos).
@@ -90,13 +90,36 @@ lugar de expedición) con presets validados; CFDI **global** por periodo usando 
 año), agrupando los pagos no facturados. **R06.07/R06.08** + tratamiento global.
 Pide decisiones fiscales (periodicidad, corte, RFC/régimen genérico).
 
-### Rebanada 3 — Autoservicio alumno/padre
+### Rebanada 3 — Autoservicio alumno/padre · SOLICITAR ✅ (2026-09-09)
 
-Permisos nuevos de faceta (generar / solicitar), «Generar factura» inmediata
-(con su perfil, reusando `EmisorFactura`), «Solicitar factura» (solicitud
-trazable con estados + bandeja compartida), y descarga del CFDI propio. **R06-A**
-+ R06.01/R06.11/R06.15/R06.16. La emisión/cancelación/sustitución NO se conceden
-al alumno/padre.
+El núcleo seguro y alineado con la spec: el alumno y su familia **SOLICITAN**, la
+escuela emite. R06.01 (la emisión no se concede al alumno) + R06.11 (estados) +
+R06.15 (bandeja) + R06.16 (mensajes/descarga).
+
+- **`solicitudes_factura`** (calca a `comprobantes_pago`): titular matrícula,
+  `pago_ids`, receptor CONGELADO al pedir, estados `pendiente/emitida/rechazada`,
+  `factura_id` al emitir. `SolicitudFactura` + `GestorSolicitudFactura`.
+- **Solicitar** no es emitir: nace la solicitud; el CFDI lo crea el admin desde
+  la bandeja reusando `EmisorFactura`. Guardas: los pagos son SUYOS y facturables
+  (lo dice `EmisorFactura::facturables`, una sola verdad), y no hay otra solicitud
+  pendiente cubriéndolos (control de duplicado = cobertura de la operación, R06.02).
+- **Permiso propio** `solicitar-factura` (faceta alumno + padre), distinto de
+  `facturar`. Interruptor por escuela `facturacion.autoservicio_solicitud`
+  (apagado por omisión; apagarlo esconde el botón, no el historial).
+- **Bandeja** `/finanzas/solicitudes-factura` (`can:facturar`): emitir / rechazar
+  con motivo, bajo bloqueo (dos personas no emiten dos facturas por una solicitud).
+- **Descarga del CFDI propio** acotada por el trait de la cartera (el personal ve
+  cualquiera; el resto, sólo el suyo), como el recibo.
+- Portales: panel `PanelSolicitarFactura` reusado por el estado de cuenta y el
+  portal del padre; el servicio `AutoservicioFactura` arma sus datos en un solo
+  sitio. Al habilitarlo en una escuela: sincronizar permisos (`PermisoSeeder`,
+  idempotente) y encender el ajuste.
+- Pruebas: `scripts/prueba-solicitud-factura.php` (21 verif, 3 mutaciones), sweep
+  del menú, pantallas-con-puerta, auditoría 69.
+
+**Pendiente de esta rebanada**: «GENERAR factura» inmediata (el alumno emite su
+propio CFDI al vuelo, con su perfil), como capacidad configurable aparte de
+solicitar. La emisión/cancelación/sustitución siguen sin concederse al alumno.
 
 ### Rebanada 4 — Facturación automática al confirmar pago
 

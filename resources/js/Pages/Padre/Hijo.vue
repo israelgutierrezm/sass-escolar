@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonVolver from '@/Components/BotonVolver.vue';
 import PildoraEstado from '@/Components/PildoraEstado.vue';
 import PanelPagoEnLinea from '@/Components/PanelPagoEnLinea.vue';
+import PanelSolicitarFactura from '@/Components/PanelSolicitarFactura.vue';
 import DocumentosDelHijo from '@/Components/DocumentosDelHijo.vue';
 
 interface Materia {
@@ -45,6 +46,15 @@ interface Finanza {
     adeudos: Adeudo[];
     pagos: any[];
     facturas: { uuid: string | null; total: number; estatus: string; fecha: string | null }[];
+    factura_autoservicio: {
+        pagos: { id: number; monto: number; metodo: string | null; momento: string | null; concepto: string | null }[];
+        receptor: { rfc: string | null; razon_social: string | null; uso_cfdi: string | null; regimen_fiscal: string | null; cp: string | null; correo: string | null } | null;
+        catalogos: { usos_cfdi: { clave: string; texto: string }[]; regimenes: { clave: string; texto: string }[] };
+    } | null;
+    solicitudes_factura: {
+        id: number; estado: string; operaciones: number; receptor_rfc: string; motivo_rechazo: string | null;
+        factura: { uuid: string | null; estatus: string; descargable: boolean } | null; solicitada_en: string | null;
+    }[];
 }
 
 const props = defineProps<{
@@ -65,6 +75,8 @@ const props = defineProps<{
     }[];
     /** Mínimo para abonar en línea. 0 = sin mínimo. */
     abonoMinimo: number;
+    /** Si la escuela abrió el canal de solicitar factura y el vínculo lo permite. */
+    puedeSolicitarFactura: boolean;
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
     conducta: {
         incidencias: { id: number; tipo: string | null; nivel: number; fecha: string | null; descripcion: string }[];
@@ -153,6 +165,11 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
  * pagando la equivocada.
  */
 const pagando = ref<Record<number, boolean>>({});
+const solicitando = ref<Record<number, boolean>>({});
+
+function etiquetaSolicitud(estado: string): string {
+    return { pendiente: 'En revisión', emitida: 'Factura emitida', rechazada: 'Rechazada' }[estado] ?? estado;
+}
 
 function iniciales(nombre: string | null): string {
     if (!nombre) return '—';
@@ -404,6 +421,49 @@ function colorCalif(estatusClave: string | null): string {
                         <li v-for="(fa, j) in f.facturas" :key="j" class="flex flex-wrap items-center justify-between gap-2">
                             <span class="font-mono text-xs" :style="{ color: 'var(--color-suave)' }">{{ fa.uuid ?? 'sin timbrar' }}</span>
                             <span>{{ pesos.format(fa.total) }} · {{ fa.estatus }} <span v-if="fa.fecha">· {{ fa.fecha }}</span></span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Solicitar factura y ver las propias. Igual que en el estado de cuenta del alumno. -->
+                <div v-if="puedeSolicitarFactura || f.solicitudes_factura.length" class="mt-4 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Facturación</p>
+                        <button
+                            v-if="puedeSolicitarFactura"
+                            type="button"
+                            class="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                            :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
+                            @click="solicitando[f.matricula_id] = !solicitando[f.matricula_id]"
+                        >
+                            {{ solicitando[f.matricula_id] ? 'Cancelar' : 'Solicitar factura' }}
+                        </button>
+                    </div>
+
+                    <PanelSolicitarFactura
+                        v-if="solicitando[f.matricula_id] && f.factura_autoservicio"
+                        :matricula-id="f.matricula_id"
+                        :pagos="f.factura_autoservicio.pagos"
+                        :receptor="f.factura_autoservicio.receptor"
+                        :catalogos="f.factura_autoservicio.catalogos"
+                        class="mb-3"
+                    />
+
+                    <ul v-if="f.solicitudes_factura.length" class="space-y-2 text-sm">
+                        <li v-for="s in f.solicitudes_factura" :key="s.id" class="flex flex-wrap items-center justify-between gap-2">
+                            <span>
+                                {{ s.solicitada_en }} · {{ s.operaciones }} {{ s.operaciones === 1 ? 'operación' : 'operaciones' }}
+                                <span class="block text-xs" :style="{ color: s.estado === 'rechazada' ? 'var(--color-peligro)' : 'var(--color-suave)' }">
+                                    {{ etiquetaSolicitud(s.estado) }}<template v-if="s.motivo_rechazo">: {{ s.motivo_rechazo }}</template>
+                                </span>
+                            </span>
+                            <a
+                                v-if="s.factura?.descargable"
+                                :href="`/finanzas/solicitudes-factura/${s.id}/cfdi/pdf`"
+                                target="_blank"
+                                class="text-xs font-medium"
+                                :style="{ color: 'var(--color-acento)' }"
+                            >Descargar CFDI</a>
                         </li>
                     </ul>
                 </div>
