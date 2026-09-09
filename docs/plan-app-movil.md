@@ -61,13 +61,27 @@ app no es el login: es «¿a qué escuela hablo?».
   salir→revoca). El 401 sin token y el 405 de método los pone el middleware de la
   ruta, comprobados por HTTP.
 
-### Rebanada 2 — La app: acceso (Flutter)
+### Rebanada 2 — La app: acceso (Flutter) ✅ (2026-09-08)
 
-El primer entregable de la app: proyecto Flutter (sibling `acadion-app`, como
-`comandia-app`), con el flujo de acceso completo contra la rebanada 1 —código de
-escuela → login → guardar el token de forma segura → `/yo` al arrancar → llevar a
-cada faceta a su portal—. Sin pantallas de datos todavía: es el andamio y la
-sesión.
+Proyecto Flutter en el sibling **`acadion-app`** (repo propio, como
+`comandia-app`), con el flujo de acceso completo contra la rebanada 1: código de
+escuela → login → token en el almacén seguro → `/yo` al arrancar → routing por
+faceta (andamio; el portal del alumno llega en la 3).
+
+- **Stack**: Riverpod (`Notifier`, v3), Dio, flutter_secure_storage. La máquina
+  del acceso —cuatro estados: Cargando/SinEscuela/SinSesion/Dentro— vive en
+  `lib/core/sesion.dart`; la red en `lib/core/api.dart`.
+- **El dominio del tenant no lo resuelve un emulador**: en desarrollo se manda
+  todo al host de pruebas llevando el dominio real en la cabecera `Host` (lo que
+  el servidor lee), con `--dart-define=DEV_HOST_REWRITE=…`. En producción cada
+  dominio se usa tal cual, por HTTPS.
+- **La regla de negocio NO se duplica en Dart**: el servidor valida y decide; la
+  app pide y muestra.
+- Verificado: `flutter analyze` sin issues, **11 pruebas** (la máquina del acceso
+  con dobles sin red, y un smoke de la primera pantalla), `flutter build web`
+  compila. La API ya estaba probada por HTTP real (rebanada 1). Un extremo-a-
+  extremo con la UI viva pide emulador/dispositivo (y Developer Mode para los
+  symlinks de plugins en Windows), que queda para cuando haya con qué.
 
 ### Rebanada 3 — Alumno: datos y pantallas
 

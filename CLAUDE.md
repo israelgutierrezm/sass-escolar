@@ -1880,10 +1880,26 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     método y el 401 sin token los pone el middleware, no el controlador). Sweep
     158 verdes, phpunit 753, auditoría del demo sin cambios (69), y los tokens de
     la prueba de humo se borraron.
-  - **Rebanadas siguientes**: 2 = la app Flutter (proyecto sibling `acadion-app`)
-    con el flujo de acceso; 3 = datos y pantallas del alumno (resolver el rol
-    activo para la API y exponer mis materias / historial / estado de cuenta /
-    avisos, reusando los servicios que ya existen).
+  - **Rebanada 2 ✅ (2026-09-08): la app Flutter, el acceso.** Proyecto en el
+    sibling **`acadion-app`** (repo propio, como `comandia-app`; NO está en el
+    repo del servidor). Flujo completo contra la rebanada 1: código de escuela →
+    login → token en el almacén seguro → `/yo` al arrancar (un token revocado no
+    deja entrar) → routing por faceta (andamio). Stack: **Riverpod v3**
+    (`Notifier`, no `StateNotifier` —lo quitó riverpod 3—), Dio,
+    flutter_secure_storage v11 (`AndroidOptions(encryptedSharedPreferences:)` ya
+    no existe; se usa el default). La máquina del acceso —Cargando/SinEscuela/
+    SinSesion/Dentro— en `lib/core/sesion.dart`. **El dominio del tenant no lo
+    resuelve un emulador**: en dev se manda todo al host de pruebas con el dominio
+    real en la cabecera `Host` (`--dart-define=DEV_HOST_REWRITE`). La regla de
+    negocio NO se duplica en Dart: el servidor valida. Verificado: `flutter
+    analyze` limpio, 11 pruebas (con dobles sin red), `flutter build web` compila;
+    la API por HTTP real (rebanada 1). Un extremo-a-extremo con la UI viva pide
+    emulador/dispositivo, para cuando haya con qué.
+  - **Rebanada 3 (pendiente): datos y pantallas del alumno.** Resolver el rol
+    activo para la API (hoy `EstablecerRolActivo` es de la web) y exponer, gateado
+    por permiso, mis materias / historial / estado de cuenta / avisos, reusando
+    los servicios que ya existen (`HistorialDelAlumno`, `EstadoCuenta`…): una sola
+    verdad, no una segunda para la app. Y las pantallas del alumno en Flutter.
 
 - **Finanzas · COMPRAS y cuentas por pagar, rebanada 3 (ÓRDENES DE COMPRA) ·
   CIERRA EL MÓDULO** (2026-09-08). Un compromiso de compra que al recibirse genera
