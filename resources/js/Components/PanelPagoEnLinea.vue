@@ -56,8 +56,10 @@ const props = withDefaults(
          * vía y el bloque ni aparece.
          */
         cuentas?: CuentaBancaria[];
+        /** Mínimo para abonar en línea. 0 = sin mínimo. */
+        abonoMinimo?: number;
     }>(),
-    { seleccionados: () => [], cuentas: () => [] },
+    { seleccionados: () => [], cuentas: () => [], abonoMinimo: 0 },
 );
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -75,6 +77,31 @@ const aPagar = computed(() => {
 });
 
 const total = computed(() => aPagar.value.reduce((suma, a) => suma + a.saldo, 0));
+
+/*
+ * ── Abonar una cantidad menor ──────────────────────────────────────────────
+ * Por omisión se paga el saldo entero de lo elegido. Quien no puede pagarlo
+ * todo abona un importe: el motor lo reparte del cargo más vencido al menos, y
+ * nunca puede pasar del saldo. El mínimo lo pone la escuela; el servidor lo
+ * vuelve a exigir, esto es sólo para decirlo antes de salir a la pasarela.
+ */
+const abonando = ref(false);
+const importe = ref<number | string>('');
+const importeNum = computed(() => Math.round((Number(importe.value) || 0) * 100) / 100);
+
+/** Lo que de verdad se va a cobrar: el abono si está activo, si no el total. */
+const aCobrar = computed(() => (abonando.value ? importeNum.value : total.value));
+
+/** Por qué no se puede abonar todavía, para decirlo y bloquear el botón. */
+const problemaAbono = computed<string | null>(() => {
+    if (!abonando.value) return null;
+    if (importeNum.value <= 0) return 'Escribe cuánto quieres abonar.';
+    if (importeNum.value > total.value) return `No puedes abonar más que el saldo elegido (${pesos.format(total.value)}).`;
+    if (props.abonoMinimo > 0 && importeNum.value < props.abonoMinimo) return `El abono mínimo es ${pesos.format(props.abonoMinimo)}.`;
+    return null;
+});
+
+const puedePagar = computed(() => aCobrar.value > 0 && problemaAbono.value === null);
 
 /**
  * Manda a la pasarela.
@@ -165,6 +192,9 @@ function pulsar(p: PasarelaDisponible): void {
 }
 
 async function pagar(clave: string, metodo?: string): Promise<void> {
+    // El botón ya se deshabilita, pero el método puede llegar por otra vía.
+    if (!puedePagar.value) return;
+
     yendoAPagar.value = clave;
     error.value = null;
 
@@ -180,6 +210,9 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
                 pasarela: clave,
                 adeudo_ids: aPagar.value.map((a) => a.id),
                 metodo: metodo ?? null,
+                // Sólo cuando se abona menos que el total: el servidor lo toma
+                // como el importe a cobrar y lo valida contra el mínimo.
+                importe: abonando.value ? importeNum.value : null,
             }),
         });
 
@@ -208,12 +241,46 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
     <div>
         <p class="text-sm">
             Vas a pagar
-            <strong>{{ pesos.format(total) }}</strong>
+            <strong>{{ pesos.format(aCobrar) }}</strong>
             <span :style="{ color: 'var(--color-suave)' }">
-                ({{ aPagar.length === 1 ? '1 cargo' : `${aPagar.length} cargos` }}).
+                <template v-if="abonando">a cuenta de {{ pesos.format(total) }} en </template>
+                <template v-else>(</template>{{ aPagar.length === 1 ? '1 cargo' : `${aPagar.length} cargos` }}{{ abonando ? '.' : ').' }}
                 <slot name="nota" />
             </span>
         </p>
+
+        <!--
+            Abonar menos que el total. El motor reparte el importe del cargo más
+            vencido al menos entre los que se están pagando; el tope es el saldo.
+        -->
+        <div class="mt-2">
+            <label class="inline-flex items-center gap-2 text-sm">
+                <input v-model="abonando" type="checkbox" />
+                <span>Abonar otra cantidad</span>
+            </label>
+
+            <div v-if="abonando" class="mt-2 max-w-xs">
+                <label class="flex items-center gap-2 rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: problemaAbono ? 'var(--color-peligro)' : 'var(--color-borde)' }">
+                    <span :style="{ color: 'var(--color-suave)' }">$</span>
+                    <input
+                        v-model="importe"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        :max="total"
+                        class="w-full bg-transparent focus:outline-none"
+                        placeholder="0.00"
+                    />
+                </label>
+                <p class="mt-1 text-xs" :style="{ color: problemaAbono ? 'var(--color-peligro)' : 'var(--color-suave)' }">
+                    <template v-if="problemaAbono">{{ problemaAbono }}</template>
+                    <template v-else>
+                        Se aplica del cargo más vencido al menos.
+                        <template v-if="abonoMinimo > 0"> Mínimo {{ pesos.format(abonoMinimo) }}.</template>
+                    </template>
+                </p>
+            </div>
+        </div>
 
         <div class="mt-3 grid gap-2 sm:grid-cols-2">
             <div v-for="p in pasarelas" :key="p.clave">
@@ -221,7 +288,7 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
                     type="button"
                     class="inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
                     :style="{ backgroundColor: p.color ?? 'var(--color-acento)' }"
-                    :disabled="yendoAPagar !== null || total <= 0"
+                    :disabled="yendoAPagar !== null || !puedePagar"
                     @click="pulsar(p)"
                 >
                     {{ yendoAPagar === p.clave ? 'Abriendo…' : `Pagar con ${p.nombre}` }}
@@ -244,7 +311,7 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
                         type="button"
                         class="w-full rounded-lg border px-3 py-2 text-left text-sm transition hover:brightness-105 disabled:opacity-60"
                         :style="{ borderColor: 'var(--color-borde)' }"
-                        :disabled="yendoAPagar !== null"
+                        :disabled="yendoAPagar !== null || !puedePagar"
                         @click="pagar(p.clave, m.clave)"
                     >
                         {{ m.etiqueta }}

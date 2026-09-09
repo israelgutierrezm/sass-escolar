@@ -63,6 +63,8 @@ const props = defineProps<{
         id: number; nombre: string; banco: string; titular: string;
         clabe: string | null; numero_cuenta: string | null; instrucciones: string | null;
     }[];
+    /** Mínimo para abonar en línea. 0 = sin mínimo. */
+    abonoMinimo: number;
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
     conducta: {
         incidencias: { id: number; tipo: string | null; nivel: number; fecha: string | null; descripcion: string }[];
@@ -351,8 +353,9 @@ function colorCalif(estatusClave: string | null): string {
                             :adeudos="f.adeudos"
                             :pasarelas="pasarelas"
                             :cuentas="cuentasBancarias"
+                            :abono-minimo="abonoMinimo"
                         >
-                            <template #nota>Se pagan todos los cargos con saldo.</template>
+                            <template #nota>Se pagan todos los cargos con saldo, o abona lo que puedas.</template>
                         </PanelPagoEnLinea>
 
                         <button
@@ -364,6 +367,35 @@ function colorCalif(estatusClave: string | null): string {
                             Cancelar
                         </button>
                     </template>
+                </div>
+
+                <!--
+                    Los pagos, con su recibo. Es el comprobante de que pagó, y
+                    hasta hoy sólo lo podía sacar el personal: quien paga desde
+                    aquí se quedaba sin papel. El servidor lo acota a esta cuenta.
+                -->
+                <div v-if="f.pagos.length" class="mt-4 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
+                    <p class="mb-2 text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Pagos</p>
+                    <ul class="space-y-1 text-sm">
+                        <li v-for="(pg, j) in f.pagos" :key="j" class="flex flex-wrap items-center justify-between gap-2">
+                            <span :style="{ color: 'var(--color-suave)' }">
+                                {{ pg.momento ? pg.momento.slice(0, 10) : '' }} · {{ pg.metodo ?? '—' }}
+                                <span v-if="pg.estatus !== 'completado'"> · {{ pg.estatus }}</span>
+                            </span>
+                            <span class="flex items-center gap-3">
+                                <span class="tabular-nums">{{ pesos.format(pg.monto) }}</span>
+                                <a
+                                    v-if="pg.estatus === 'completado'"
+                                    :href="`/finanzas/pagos/${pg.id}/recibo`"
+                                    target="_blank"
+                                    class="text-xs font-medium"
+                                    :style="{ color: 'var(--color-acento)' }"
+                                >
+                                    Recibo
+                                </a>
+                            </span>
+                        </li>
+                    </ul>
                 </div>
 
                 <div v-if="f.facturas.length" class="mt-4 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">

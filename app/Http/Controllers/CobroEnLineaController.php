@@ -65,6 +65,10 @@ class CobroEnLineaController extends Controller
             'adeudo_ids.*' => ['integer'],
             // Sólo lo mandan las pasarelas que exigen saberlo de antemano.
             'metodo' => ['nullable', 'string', 'max:20'],
+            // Un abono: cuánto quiere pagar. Ausente = el saldo entero de lo
+            // elegido. El mínimo y el tope los revisa el servicio, que es el
+            // único que sabe el saldo real y la política de la escuela.
+            'importe' => ['nullable', 'numeric', 'min:0.01'],
         ], [
             'adeudo_ids.required' => 'Elige al menos un cargo para pagar.',
         ]);
@@ -83,6 +87,7 @@ class CobroEnLineaController extends Controller
                 route('tenant.pagos.retorno'),
                 UrlPublica::paraAfuera(route('tenant.pagos.aviso', ['pasarela' => $datos['pasarela']])),
                 $datos['metodo'] ?? null,
+                isset($datos['importe']) ? (float) $datos['importe'] : null,
             );
         } catch (RuntimeException $e) {
             /*

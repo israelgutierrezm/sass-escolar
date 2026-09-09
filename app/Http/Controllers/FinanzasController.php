@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Documentos\ReciboDeCaja;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
@@ -202,6 +204,12 @@ class FinanzasController extends Controller
              */
             'pasarelas' => app(Pasarelas::class)->disponibles(),
             /*
+             * El mínimo para abonar en línea. Cero = sin mínimo. El servidor lo
+             * vuelve a exigir al iniciar el cobro; esto es para que la pantalla
+             * lo diga antes, que es lo que pide «explicación previa al usuario».
+             */
+            'abonoMinimo' => app(Ajustes::class)->entero(CatalogoAjustes::ABONO_MINIMO),
+            /*
              * La otra forma de pagar: transferir a la cuenta de la escuela y
              * subir el comprobante. Sólo las cuentas que sirven para SU programa académico
              * —una escuela suele tener una por programa académico o por nivel— y que
@@ -362,10 +370,26 @@ class FinanzasController extends Controller
      * daría al alumno un papel con el logo de la escuela por una transferencia
      * que todavía no llegó. Responde 404 y no 403 — ese recibo no existe aún,
      * no es que no le toque a quien lo pide.
+     *
+     * ── Quién puede descargarlo ────────────────────────────────────────────
+     * Quien cobra en ventanilla, cualquiera. El alumno y su familia, el de SU
+     * cuenta: es su comprobante de que pagaron, y hasta hoy sólo lo podía sacar
+     * el personal —quien paga en línea se quedaba sin papel—. Mismo criterio y
+     * mismo trait que el archivo del comprobante: el permiso es una puerta, «de
+     * quién es esta cuenta» es la otra.
      */
-    public function recibo(Pago $pago, ReciboDeCaja $recibo): SymfonyResponse
+    public function recibo(Request $request, Pago $pago, ReciboDeCaja $recibo): SymfonyResponse
     {
         abort_unless($pago->estaCobrado(), 404);
+
+        if (! $request->user()->can('registrar-pagos')) {
+            $matricula = $pago->matriculaOferta;
+
+            // Un pago de aspirante no tiene matrícula que consultar: ése sólo lo
+            // saca el personal. Y el 404 no confirma que el pago exista.
+            abort_unless($matricula !== null, 404);
+            $this->exigirQuePuedaVerLaCuenta($request, $matricula);
+        }
 
         return $recibo->responder($pago);
     }

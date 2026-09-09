@@ -126,6 +126,8 @@ const props = defineProps<{
         clabe: string | null; numero_cuenta: string | null; instrucciones: string | null;
     }[];
     facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
+    /** Mínimo para abonar en línea. 0 = sin mínimo. */
+    abonoMinimo: number;
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -629,6 +631,7 @@ function firmarConvenio(): void {
                     :pasarelas="pasarelas"
                     :seleccionados="seleccionados"
                     :cuentas="cuentasBancarias"
+                    :abono-minimo="abonoMinimo"
                 >
                     <template #nota>
                         <template v-if="!seleccionados.length">
@@ -850,12 +853,15 @@ function firmarConvenio(): void {
                                 <PildoraEstado :texto="p.estatus" />
                             </td>
                             <td class="px-6 py-3 text-right">
-                                <div v-if="permisos.registrarPagos" class="flex justify-end gap-3">
+                                <div class="flex justify-end gap-3">
                                     <!--
-                                        Sólo de lo que de verdad entró: el recibo
-                                        de un pago PENDIENTE sería un papel con el
-                                        logo de la escuela por dinero que todavía
-                                        no llegó.
+                                        El recibo lo ve cualquiera que pueda ver
+                                        esta cuenta —el alumno y su familia, no
+                                        sólo quien cobra—: es su comprobante de
+                                        que pagó. Sólo de lo que de verdad entró:
+                                        el de un pago PENDIENTE sería un papel con
+                                        el logo de la escuela por dinero que
+                                        todavía no llegó.
                                     -->
                                     <a
                                         v-if="p.estatus === 'completado'"
@@ -866,31 +872,33 @@ function firmarConvenio(): void {
                                     >
                                         Recibo
                                     </a>
-                                    <button
-                                        v-if="p.estatus === 'pendiente'"
-                                        type="button"
-                                        class="text-xs font-medium"
-                                        :style="{ color: 'var(--color-acento)' }"
-                                        @click="confirmar(p.id)"
-                                    >
-                                        Confirmar
-                                    </button>
-                                    <button
-                                        v-if="p.estatus === 'pendiente'"
-                                        type="button"
-                                        class="text-xs font-medium text-red-600"
-                                        @click="revertir(p.id, 'fallido')"
-                                    >
-                                        Marcar fallido
-                                    </button>
-                                    <button
-                                        v-if="p.estatus === 'completado'"
-                                        type="button"
-                                        class="text-xs font-medium text-red-600"
-                                        @click="revertir(p.id, 'reembolsado')"
-                                    >
-                                        Reembolsar
-                                    </button>
+                                    <template v-if="permisos.registrarPagos">
+                                        <button
+                                            v-if="p.estatus === 'pendiente'"
+                                            type="button"
+                                            class="text-xs font-medium"
+                                            :style="{ color: 'var(--color-acento)' }"
+                                            @click="confirmar(p.id)"
+                                        >
+                                            Confirmar
+                                        </button>
+                                        <button
+                                            v-if="p.estatus === 'pendiente'"
+                                            type="button"
+                                            class="text-xs font-medium text-red-600"
+                                            @click="revertir(p.id, 'fallido')"
+                                        >
+                                            Marcar fallido
+                                        </button>
+                                        <button
+                                            v-if="p.estatus === 'completado'"
+                                            type="button"
+                                            class="text-xs font-medium text-red-600"
+                                            @click="revertir(p.id, 'reembolsado')"
+                                        >
+                                            Reembolsar
+                                        </button>
+                                    </template>
                                 </div>
                             </td>
                         </tr>

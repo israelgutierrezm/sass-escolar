@@ -73,6 +73,9 @@ final class CatalogoAjustes
 
     public const CAJA_TOLERANCIA = 'caja.tolerancia_diferencia';
 
+    // Finanzas.
+    public const ABONO_MINIMO = 'finanzas.abono_minimo';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -338,6 +341,27 @@ final class CatalogoAjustes
                 min: 0,
                 max: 1000,
                 consecuencia: 'Subirlo deja pasar sin explicación las diferencias por debajo del tope.',
+            ),
+
+            new Ajuste(
+                clave: self::ABONO_MINIMO,
+                grupo: 'Finanzas',
+                etiqueta: 'Mínimo para abonar en línea (pesos)',
+                descripcion: 'Cuando el alumno o su familia paga en línea, puede abonar menos que el '
+                    .'saldo del cargo. Este es el importe más chico que se acepta por esa vía. El abono '
+                    .'se aplica del cargo más vencido al menos, y nunca puede pasar del saldo elegido.',
+                tipo: Ajuste::ENTERO,
+                /*
+                 * Cero: sin mínimo. Es el lado que no le cierra la puerta a nadie
+                 * —una familia que sólo puede dar $200 este mes los abona— y deja
+                 * que cada escuela ponga su piso cuando la comisión de la pasarela
+                 * vuelva caro un micro-abono. Mismo criterio que la tolerancia de
+                 * caja, que también nace en cero.
+                 */
+                porDefecto: 0,
+                min: 0,
+                max: 100000,
+                consecuencia: 'Por debajo de este importe el pago en línea se rehúsa y se le dice el mínimo a quien iba a abonar. No toca los cargos ya emitidos ni la transferencia con comprobante, que la revisa una persona.',
             ),
 
             new Ajuste(

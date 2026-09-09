@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
@@ -233,10 +235,70 @@ class CobroEnLineaTest extends TenantTestCase
         $this->assertSame(Adeudo::ESTATUS_PAGADO, Adeudo::find($dos)->estatus);
     }
 
+    /**
+     * Un ABONO: se paga menos que el saldo del cargo.
+     *
+     * Es la prueba mínima del pedido —$3,000 de cargo, se abonan $1,000—: la
+     * intención sale por el importe y no por el saldo entero, y al confirmarse
+     * el cargo queda parcial con sus $2,000 restantes.
+     */
+    public function test_se_puede_abonar_menos_que_el_saldo(): void
+    {
+        $matricula = $this->alumnoInscrito()['matricula'];
+        $adeudo = $this->adeudo($matricula, 3000);
+
+        $intencion = $this->iniciar($matricula, [$adeudo], importe: 1000);
+
+        $this->assertSame(1000.0, (float) $intencion->monto, 'Se cobra el abono, no el saldo entero.');
+
+        $this->cobro->conciliar($this->aprobado($intencion, 1000));
+
+        $cargo = Adeudo::find($adeudo);
+        $this->assertSame(Adeudo::ESTATUS_PARCIAL, $cargo->estatus);
+        $this->assertSame(2000.0, $cargo->saldo(), 'Quedan $2,000 por pagar.');
+    }
+
+    /** No se puede abonar MÁS que el saldo: el sobrepago dejaría saldo a favor que nadie pidió. */
+    public function test_no_se_puede_abonar_mas_que_el_saldo(): void
+    {
+        $matricula = $this->alumnoInscrito()['matricula'];
+        $adeudo = $this->adeudo($matricula, 3000);
+
+        $this->expectException(AvisoParaElUsuario::class);
+
+        $this->iniciar($matricula, [$adeudo], importe: 4000);
+    }
+
+    /**
+     * El abono respeta el mínimo de la escuela.
+     *
+     * Con el mínimo en $500, un abono de $200 se rehúsa ANTES de salir a la
+     * pasarela —sin dejar intención— y $500 pasa.
+     */
+    public function test_el_abono_respeta_el_minimo_de_la_escuela(): void
+    {
+        app(Ajustes::class)->guardar([CatalogoAjustes::ABONO_MINIMO => 500]);
+
+        $matricula = $this->alumnoInscrito()['matricula'];
+        $adeudo = $this->adeudo($matricula, 3000);
+
+        try {
+            $this->iniciar($matricula, [$adeudo], importe: 200);
+            $this->fail('Un abono por debajo del mínimo tenía que rehusarse.');
+        } catch (AvisoParaElUsuario) {
+            // Lo esperado.
+        }
+
+        $this->assertSame(0, IntencionCobro::count(), 'El abono rehusado no dejó intención.');
+
+        $intencion = $this->iniciar($matricula, [$adeudo], importe: 500);
+        $this->assertSame(500.0, (float) $intencion->monto, 'Justo el mínimo sí pasa.');
+    }
+
     // ── Andamiaje ──────────────────────────────────────────────────────────
 
     /** @param  array<int, int>  $adeudos */
-    private function iniciar(int $matricula, array $adeudos): IntencionCobro
+    private function iniciar(int $matricula, array $adeudos, ?float $importe = null): IntencionCobro
     {
         return $this->cobro->iniciar(
             MatriculaOferta::findOrFail($matricula),
@@ -244,6 +306,8 @@ class CobroEnLineaTest extends TenantTestCase
             $adeudos,
             'http://demo.test/pagos/retorno',
             'http://demo.test/pagos/aviso/mercadopago',
+            metodo: null,
+            importe: $importe,
         );
     }
 

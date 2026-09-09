@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Pagos;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
@@ -48,12 +50,17 @@ class CobroEnLinea
     public function __construct(
         private readonly Pasarelas $pasarelas,
         private readonly RegistradorPago $registrador,
+        private readonly Ajustes $ajustes,
     ) {}
 
     /**
      * Prepara el cobro y devuelve a dónde mandar a quien paga.
      *
      * @param  array<int, int>  $adeudoIds  Los cargos que eligió pagar.
+     * @param  float|null  $importe  Un abono: cuánto quiere pagar de esos cargos.
+     *                               Null cobra el saldo completo de todos. Menor
+     *                               que el saldo se aplica del más vencido al
+     *                               menos; nunca puede pasar de ese saldo.
      */
     public function iniciar(
         MatriculaOferta|Aspirante $titular,
@@ -62,6 +69,7 @@ class CobroEnLinea
         string $urlRetorno,
         string $urlAviso,
         ?string $metodo = null,
+        ?float $importe = null,
     ): IntencionCobro {
         $config = PasarelaPago::para($clavePasarela);
         $pasarela = $this->pasarelas->para($config);
@@ -86,13 +94,21 @@ class CobroEnLinea
             'No hay cargos por pagar entre los que elegiste. Puede que ya se hayan liquidado.',
         );
 
-        $monto = round($adeudos->sum(fn (Adeudo $a) => $a->saldo()), 2);
+        $saldoTotal = round($adeudos->sum(fn (Adeudo $a) => $a->saldo()), 2);
 
         AvisoParaElUsuario::aMenosQue(
-            $monto > 0,
+            $saldoTotal > 0,
             422,
             'Esos cargos ya no tienen saldo pendiente.',
         );
+
+        // Sin importe, se cobra el saldo entero de lo elegido —lo de siempre—.
+        // Con importe, es un abono: se valida contra el mínimo de la escuela y
+        // se topa al saldo, y el motor de pago lo reparte del más vencido al
+        // menos entre esos mismos cargos.
+        $monto = $importe === null
+            ? $saldoTotal
+            : $this->montoDeAbono($importe, $saldoTotal);
 
         $intencion = IntencionCobro::create([
             ...$this->columnaTitular($titular),
@@ -202,6 +218,40 @@ class CobroEnLinea
     }
 
     // ── Interno ────────────────────────────────────────────────────────────
+
+    /**
+     * Valida el abono contra el mínimo de la escuela y el saldo elegido.
+     *
+     * El tope es el saldo: en línea no hay quien revise un sobrepago, así que
+     * pagar de más —que dejaría saldo a favor sin pedir— se rehúsa antes de
+     * salir a la pasarela. El mínimo lo pone la escuela (cero = sin mínimo).
+     */
+    private function montoDeAbono(float $importe, float $saldoTotal): float
+    {
+        $importe = round($importe, 2);
+
+        AvisoParaElUsuario::aMenosQue(
+            $importe > 0,
+            422,
+            'El abono tiene que ser mayor que cero.',
+        );
+
+        AvisoParaElUsuario::aMenosQue(
+            $importe <= $saldoTotal,
+            422,
+            'No puedes pagar más que el saldo de los cargos elegidos ($'.number_format($saldoTotal, 2).').',
+        );
+
+        $minimo = (float) $this->ajustes->entero(CatalogoAjustes::ABONO_MINIMO);
+
+        AvisoParaElUsuario::aMenosQue(
+            $minimo <= 0 || $importe >= $minimo,
+            422,
+            'El abono mínimo en línea es $'.number_format($minimo, 2).'.',
+        );
+
+        return $importe;
+    }
 
     private function registrarElDinero(IntencionCobro $intencion, ResultadoCobro $resultado): void
     {

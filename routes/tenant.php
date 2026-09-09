@@ -1896,13 +1896,19 @@ Route::middleware([
                     Route::get('/', 'index')->name('index');
                     Route::get('/cuentas/{matricula}', 'cuenta')->name('cuenta');
 
+                    /*
+                     * El recibo va SIN `can:registrar-pagos`: es el comprobante
+                     * de quien pagó, y quien paga en línea (alumno o familia)
+                     * tiene que poder sacarlo. El controlador lo acota —el
+                     * personal ve cualquiera; el resto, sólo el de su cuenta—,
+                     * igual que el archivo del comprobante. Es una LECTURA (el
+                     * papel se pierde y se reimprime), por eso GET.
+                     */
+                    Route::get('/pagos/{pago}/recibo', 'recibo')->name('pagos.recibo');
+
                     Route::middleware('can:registrar-pagos')->group(function () {
                         Route::post('/cuentas/{matricula}/generar', 'generar')->name('generar');
                         Route::post('/cuentas/{matricula}/pagos', 'registrarPago')->name('pagos.store');
-                        // El recibo lo entrega quien cobra, con su mismo
-                        // permiso. Es una LECTURA —el papel se pierde y se
-                        // vuelve a imprimir—, por eso GET.
-                        Route::get('/pagos/{pago}/recibo', 'recibo')->name('pagos.recibo');
                         Route::post('/pagos/{pago}/confirmar', 'confirmarPago')->name('pagos.confirmar');
                         Route::post('/pagos/{pago}/revertir', 'revertirPago')->name('pagos.revertir');
                         Route::put('/cuentas/{matricula}/situacion', 'cambiarSituacion')->name('situacion');

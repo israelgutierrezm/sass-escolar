@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
@@ -162,6 +164,9 @@ class PadreController extends Controller
             'pasarelas' => $vinculo->puede_ver_finanzas
                 ? app(Pasarelas::class)->disponibles()
                 : [],
+            // El mínimo para abonar en línea (cero = sin mínimo). El mismo que
+            // ve el portal del alumno; el servidor lo vuelve a exigir al cobrar.
+            'abonoMinimo' => app(Ajustes::class)->entero(CatalogoAjustes::ABONO_MINIMO),
             /*
              * Y la transferencia directa, con las cuentas que sirven para las
              * programas académicos de sus hijos. Se juntan las de todas sus matrículas: la
