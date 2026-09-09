@@ -93,6 +93,49 @@ try {
 
     echo PHP_EOL.'5. La relación de la persona lo encuentra'.PHP_EOL;
     verificar('persona->datosFacturacion existe', $alumno->persona->datosFacturacion()->exists());
+
+    echo PHP_EOL.'6. Régimen y uso salen del catálogo del SAT, no texto libre'.PHP_EOL;
+    $rechazoRegimen = false;
+    try {
+        $ctrl->guardarFacturacion(req([
+            'quiere_factura' => 1,
+            'rfc' => 'XAXX010101000', 'razon_social' => 'X',
+            'regimen_fiscal' => '999', 'cp' => '64000', 'uso_cfdi' => 'G03',
+        ]), $alumno);
+    } catch (ValidationException $e) {
+        $rechazoRegimen = in_array('regimen_fiscal', array_keys($e->errors()), true);
+    }
+    verificar('Un régimen inventado (999) no pasa', $rechazoRegimen);
+
+    // P01 «Por definir» existía en CFDI 3.3 y se RETIRÓ en 4.0. Es el caso que
+    // el subconjunto viejo dejaba pasar: si esta comprobación falla, el catálogo
+    // volvió a traerlo.
+    $rechazoUso = false;
+    try {
+        $ctrl->guardarFacturacion(req([
+            'quiere_factura' => 1,
+            'rfc' => 'XAXX010101000', 'razon_social' => 'X',
+            'regimen_fiscal' => '601', 'cp' => '64000', 'uso_cfdi' => 'P01',
+        ]), $alumno);
+    } catch (ValidationException $e) {
+        $rechazoUso = in_array('uso_cfdi', array_keys($e->errors()), true);
+    }
+    verificar('Un uso de 3.3 retirado (P01) no pasa en 4.0', $rechazoUso);
+
+    // Y un uso legítimo de 4.0 que el subconjunto viejo NO tenía sí pasa: la
+    // validación amplía, no encierra. D08 «transportación escolar» es de los que
+    // faltaban.
+    $paso = true;
+    try {
+        $ctrl->guardarFacturacion(req([
+            'quiere_factura' => 1,
+            'rfc' => 'XAXX010101000', 'razon_social' => 'X',
+            'regimen_fiscal' => '626', 'cp' => '64000', 'uso_cfdi' => 'D08',
+        ]), $alumno);
+    } catch (ValidationException $e) {
+        $paso = ! array_intersect(['regimen_fiscal', 'uso_cfdi'], array_keys($e->errors()));
+    }
+    verificar('Un uso/régimen válido de 4.0 que antes faltaba (D08/626) sí pasa', $paso);
 } finally {
     DB::rollBack();
     echo PHP_EOL.'-- rollback aplicado, la base queda como estaba --'.PHP_EOL;

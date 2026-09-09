@@ -18,10 +18,12 @@
  * de donde se declara.
  */
 
+use App\Http\Controllers\FacturaController;
 use App\Jobs\TimbrarFactura;
 use App\Models\Academico\Oferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\DatosFacturacion;
 use App\Models\Finanzas\EmisorAsignacion;
 use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
@@ -34,8 +36,10 @@ use App\Services\EmisorFactura;
 use App\Services\MatriculadorOferta;
 use App\Services\RegistradorPago;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 $raiz = dirname(__DIR__);
 
@@ -351,6 +355,57 @@ try {
         $mensaje = $e->getMessage();
     }
     verificar('Citar una factura que no se emitió para sustituir a ésta se rechaza', $ajena, $mensaje);
+
+    echo PHP_EOL.'10. El perfil fiscal es la fuente del receptor, y el catálogo del SAT'.PHP_EOL;
+
+    $ctrl = app(FacturaController::class);
+
+    $props = fn () => json_decode(
+        (function () use ($ctrl, $matricula) {
+            $p = Request::create('/', 'GET');
+            $p->headers->set('X-Inertia', 'true');
+            $p->headers->set('X-Inertia-Version', '');
+            app()->instance('request', $p);
+
+            return $ctrl->facturables($matricula)->toResponse($p)->getContent();
+        })(),
+        true
+    )['props'];
+
+    // Sin perfil, la emisión sugiere los datos de la ÚLTIMA factura (ya hay una).
+    $sinPerfil = $props();
+    verificar('Sin perfil, sugiere la última factura',
+        ($sinPerfil['receptorSugerido']['origen'] ?? null) === 'ultima');
+
+    // Con perfil guardado, el perfil GANA a la última factura.
+    DatosFacturacion::updateOrCreate(['persona_id' => $persona->id], [
+        'quiere_factura' => true,
+        'rfc' => 'PERF850101AA1', 'razon_social' => 'PERFIL GUARDADO SA',
+        'regimen_fiscal' => '626', 'cp' => '11000', 'uso_cfdi' => 'G03',
+    ]);
+    $conPerfil = $props();
+    verificar('Con perfil guardado, el perfil gana a la última factura',
+        ($conPerfil['receptorSugerido']['origen'] ?? null) === 'perfil'
+        && ($conPerfil['receptorSugerido']['rfc'] ?? null) === 'PERF850101AA1');
+    verificar('El catálogo COMPLETO del SAT viaja al formulario',
+        count($conPerfil['catalogos']['regimenes'] ?? []) >= 18
+        && count($conPerfil['catalogos']['usos_cfdi'] ?? []) >= 22);
+
+    // La emisión también valida régimen/uso contra el catálogo: un código
+    // inventado se rehúsa antes de llegar al PAC.
+    $rechazoEmision = false;
+    $req = Request::create('/', 'POST', [
+        'pago_ids' => [$pagoColegiatura->id],
+        'rfc' => 'XAXX010101000', 'razon_social' => 'X',
+        'uso_cfdi' => 'G03', 'regimen_fiscal' => '999', 'cp' => '11000',
+    ]);
+    app()->instance('request', $req);
+    try {
+        $ctrl->store($req, $matricula);
+    } catch (ValidationException $e) {
+        $rechazoEmision = in_array('regimen_fiscal', array_keys($e->errors()), true);
+    }
+    verificar('La emisión rechaza un régimen fuera de catálogo (999)', $rechazoEmision);
 } catch (Throwable $e) {
     echo PHP_EOL.'EXCEPCIÓN: '.$e->getMessage().PHP_EOL;
     echo $e->getFile().':'.$e->getLine().PHP_EOL;

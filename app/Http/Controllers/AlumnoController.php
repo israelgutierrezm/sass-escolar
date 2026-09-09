@@ -998,9 +998,13 @@ class AlumnoController extends Controller
             'es_tercero' => ['boolean'],
             'rfc' => [...$reglaSiQuiere, 'string', 'min:12', 'max:13'],
             'razon_social' => [...$reglaSiQuiere, 'string', 'max:255'],
-            'regimen_fiscal' => [...$reglaSiQuiere, 'string', 'max:5'],
+            // Régimen y uso salen de catálogo del SAT, no texto libre: un valor
+            // fuera de él produce un CFDI que el PAC rechaza, y capturarlo aquí
+            // sin comprobar deja el error para el día que alguien facture.
+            'regimen_fiscal' => [...$reglaSiQuiere, 'string', Rule::in(CatalogosSat::clavesRegimenes())],
             'cp' => [...$reglaSiQuiere, 'string', 'size:5'],
-            'uso_cfdi' => [...$reglaSiQuiere, 'string', 'max:4'],
+            'uso_cfdi' => [...$reglaSiQuiere, 'string', Rule::in(CatalogosSat::clavesUsosCfdi())],
+            // El correo de ENTREGA es un dato separado de los fiscales.
             'correo_fiscal' => ['nullable', 'email', 'max:190'],
         ]);
 

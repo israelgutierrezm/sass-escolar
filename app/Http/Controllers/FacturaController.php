@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Jobs\TimbrarFactura;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\Finanzas\DatosFacturacion;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
@@ -14,6 +15,7 @@ use App\Services\Cfdi\ComplementoEducativo;
 use App\Services\DescargaMasivaCfdi;
 use App\Services\EmisorFactura;
 use App\Services\EmisorNotaCredito;
+use App\Support\CatalogosSat;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -260,10 +262,16 @@ class FacturaController extends Controller
             // llevar complemento. Se avisa antes de emitir porque después el
             // arreglo es cancelar ante el SAT y volver a facturar.
             'iedu' => ['impedimentos' => $this->complemento->impedimentos($matricula)],
-            // Se precargan los datos fiscales de su última factura: quien
-            // factura cada mes no debería recapturar su RFC cada vez.
-            'ultimoReceptor' => $this->ultimoReceptor($matricula),
+            // El receptor que se sugiere: el perfil fiscal GUARDADO del alumno
+            // si lo tiene, y sólo si no, los datos de su última factura.
+            'receptorSugerido' => $this->receptorSugerido($matricula),
             'usoDefault' => config('cfdi.uso_cfdi_default'),
+            // Régimen y uso salen del catálogo del SAT: una sola lista para el
+            // desplegable, la misma contra la que valida el servidor.
+            'catalogos' => [
+                'usos_cfdi' => CatalogosSat::usosCfdi(),
+                'regimenes' => CatalogosSat::regimenesFiscales(),
+            ],
         ]);
     }
 
@@ -277,8 +285,10 @@ class FacturaController extends Controller
             // que nuestra regex no contempla sería peor que dejarlo pasar.
             'rfc' => ['required', 'string', 'min:12', 'max:13'],
             'razon_social' => ['required', 'string', 'max:255'],
-            'uso_cfdi' => ['required', 'string', 'max:5'],
-            'regimen_fiscal' => ['required', 'string', 'max:5'],
+            // Régimen y uso contra el catálogo del SAT: un código inventado
+            // timbra mal, y el error saldría hasta la respuesta del PAC.
+            'uso_cfdi' => ['required', 'string', Rule::in(CatalogosSat::clavesUsosCfdi())],
+            'regimen_fiscal' => ['required', 'string', Rule::in(CatalogosSat::clavesRegimenes())],
             'cp' => ['required', 'string', 'size:5'],
         ]);
 
@@ -349,8 +359,8 @@ class FacturaController extends Controller
         $datos = $request->validate([
             'rfc' => ['required', 'string', 'min:12', 'max:13'],
             'razon_social' => ['required', 'string', 'max:255'],
-            'uso_cfdi' => ['required', 'string', 'max:5'],
-            'regimen_fiscal' => ['required', 'string', 'max:5'],
+            'uso_cfdi' => ['required', 'string', Rule::in(CatalogosSat::clavesUsosCfdi())],
+            'regimen_fiscal' => ['required', 'string', Rule::in(CatalogosSat::clavesRegimenes())],
             'cp' => ['required', 'string', 'size:5'],
         ]);
 
@@ -462,6 +472,44 @@ class FacturaController extends Controller
             'matricula' => $factura->matriculaOferta?->matricula,
             'alumno' => $factura->matriculaOferta?->persona?->nombreCompleto(),
         ];
+    }
+
+    /**
+     * El receptor que se sugiere al abrir la emisión.
+     *
+     * Prefiere el PERFIL FISCAL guardado de la persona (`datos_facturacion`, que
+     * captura el expediente del alumno) y sólo cae a «la última factura» cuando
+     * no hay perfil. Antes sólo se miraba la última factura, así que el perfil
+     * que alguien capturaba en el expediente no lo veía nadie al facturar: dos
+     * fuentes de verdad para «con qué datos se le factura a este alumno».
+     *
+     * No SOBREESCRIBE el perfil al emitir: el receptor se sigue tecleando y
+     * congelando en la factura, y el admin puede facturar a un tercero distinto
+     * sin tocar el perfil guardado. Esto sólo decide de dónde nace la sugerencia.
+     *
+     * @return array<string, string|null>|null
+     */
+    private function receptorSugerido(MatriculaOferta $matricula): ?array
+    {
+        $perfil = DatosFacturacion::query()
+            ->where('persona_id', $matricula->persona_id)
+            ->whereNotNull('rfc')
+            ->first();
+
+        if ($perfil !== null) {
+            return [
+                'rfc' => $perfil->rfc,
+                'razon_social' => $perfil->razon_social,
+                'uso_cfdi' => $perfil->uso_cfdi,
+                'regimen_fiscal' => $perfil->regimen_fiscal,
+                'cp' => $perfil->cp,
+                'origen' => 'perfil',
+            ];
+        }
+
+        $ultimo = $this->ultimoReceptor($matricula);
+
+        return $ultimo === null ? null : $ultimo + ['origen' => 'ultima'];
     }
 
     /**

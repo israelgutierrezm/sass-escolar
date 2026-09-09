@@ -20,28 +20,37 @@ interface PagoFacturable {
 const props = defineProps<{
     matricula: { id: number; matricula: string; nombre: string | null };
     pagos: PagoFacturable[];
-    ultimoReceptor: {
+    // El receptor sugerido: el perfil fiscal guardado del alumno («perfil») o,
+    // si no tiene, los datos de su última factura («ultima»).
+    receptorSugerido: {
         rfc: string;
         razon_social: string;
         uso_cfdi: string;
         regimen_fiscal: string;
         cp: string;
+        origen: 'perfil' | 'ultima';
     } | null;
     usoDefault: string;
     iedu: { impedimentos: string[] };
+    // Catálogos del SAT para régimen y uso. Una sola lista, la misma contra la
+    // que valida el servidor.
+    catalogos: {
+        usos_cfdi: { clave: string; texto: string }[];
+        regimenes: { clave: string; texto: string }[];
+    };
 }>();
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
-// Se precargan los datos de su última factura: quien factura cada mes no
-// debería recapturar su RFC y su régimen todas las veces.
+// Se precarga el perfil fiscal del alumno (o su última factura): quien factura
+// cada mes no debería recapturar su RFC y su régimen todas las veces.
 const form = useForm({
     pago_ids: [] as number[],
-    rfc: props.ultimoReceptor?.rfc ?? '',
-    razon_social: props.ultimoReceptor?.razon_social ?? '',
-    uso_cfdi: props.ultimoReceptor?.uso_cfdi ?? props.usoDefault,
-    regimen_fiscal: props.ultimoReceptor?.regimen_fiscal ?? '605',
-    cp: props.ultimoReceptor?.cp ?? '',
+    rfc: props.receptorSugerido?.rfc ?? '',
+    razon_social: props.receptorSugerido?.razon_social ?? '',
+    uso_cfdi: props.receptorSugerido?.uso_cfdi ?? props.usoDefault,
+    regimen_fiscal: props.receptorSugerido?.regimen_fiscal ?? '',
+    cp: props.receptorSugerido?.cp ?? '',
 });
 
 const total = computed(() =>
@@ -93,23 +102,6 @@ const llevaIedu = computed(
 function emitir(): void {
     form.post(`/finanzas/facturas/emitir/${props.matricula.id}`);
 }
-
-// Los más usados en una escuela. Se deja escribir otro porque el catálogo del
-// SAT tiene decenas y encerrarlo en una lista corta obligaría a tocar código
-// cada vez que llegue un régimen que no está.
-const usos = [
-    { valor: 'D10', texto: 'D10 — Pagos por servicios educativos (colegiaturas)' },
-    { valor: 'G03', texto: 'G03 — Gastos en general' },
-    { valor: 'S01', texto: 'S01 — Sin efectos fiscales' },
-];
-
-const regimenes = [
-    { valor: '605', texto: '605 — Sueldos y salarios' },
-    { valor: '612', texto: '612 — Personas físicas con actividad empresarial' },
-    { valor: '616', texto: '616 — Sin obligaciones fiscales' },
-    { valor: '601', texto: '601 — General de ley personas morales' },
-    { valor: '603', texto: '603 — Personas morales con fines no lucrativos' },
-];
 </script>
 
 <template>
@@ -236,32 +228,29 @@ const regimenes = [
 
                     <label class="text-sm">
                         <span class="mb-1 block font-medium">Uso del CFDI</span>
-                        <input
+                        <select
                             v-model="form.uso_cfdi"
-                            list="usos-cfdi"
                             required
-                            maxlength="5"
                             class="w-full rounded-lg border px-3 py-2 text-sm"
                             :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                        <datalist id="usos-cfdi">
-                            <option v-for="u in usos" :key="u.valor" :value="u.valor">{{ u.texto }}</option>
-                        </datalist>
+                        >
+                            <option v-for="u in catalogos.usos_cfdi" :key="u.clave" :value="u.clave">{{ u.texto }}</option>
+                        </select>
+                        <span v-if="form.errors.uso_cfdi" class="text-xs text-red-600">{{ form.errors.uso_cfdi }}</span>
                     </label>
 
                     <label class="text-sm">
                         <span class="mb-1 block font-medium">Régimen fiscal</span>
-                        <input
+                        <select
                             v-model="form.regimen_fiscal"
-                            list="regimenes"
                             required
-                            maxlength="5"
                             class="w-full rounded-lg border px-3 py-2 text-sm"
                             :style="{ borderColor: 'var(--color-borde)' }"
-                        />
-                        <datalist id="regimenes">
-                            <option v-for="r in regimenes" :key="r.valor" :value="r.valor">{{ r.texto }}</option>
-                        </datalist>
+                        >
+                            <option value="" disabled>Elige el régimen</option>
+                            <option v-for="r in catalogos.regimenes" :key="r.clave" :value="r.clave">{{ r.texto }}</option>
+                        </select>
+                        <span v-if="form.errors.regimen_fiscal" class="text-xs text-red-600">{{ form.errors.regimen_fiscal }}</span>
                     </label>
 
                     <label class="text-sm">
