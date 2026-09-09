@@ -85,13 +85,7 @@ class ResolutorEmisorFiscal
         $emisor = $this->para($matricula);
 
         if ($emisor !== null) {
-            return [
-                'emisor_id' => $emisor->id,
-                'emisor_rfc' => $emisor->rfc,
-                'emisor_razon_social' => $emisor->razon_social,
-                'emisor_regimen_fiscal' => $emisor->regimen_fiscal,
-                'emisor_cp' => $emisor->cp,
-            ];
+            return $this->datosDe($emisor);
         }
 
         // Hay razones sociales dadas de alta pero ninguna cubre este programa académico.
@@ -123,6 +117,25 @@ class ResolutorEmisorFiscal
             'emisor_razon_social' => (string) ($config['razon_social'] ?? ''),
             'emisor_regimen_fiscal' => (string) ($config['regimen_fiscal'] ?? '601'),
             'emisor_cp' => (string) ($config['cp'] ?? ''),
+        ];
+    }
+
+    /**
+     * El snapshot de una razón social concreta, para congelarlo en la factura.
+     *
+     * Lo usa la factura GLOBAL, que no cuelga de una matrícula —agrupa pagos de
+     * muchas—: ahí el emisor lo elige quien la emite, no se resuelve por programa.
+     *
+     * @return array<string, mixed>
+     */
+    public function datosDe(EmisorFiscal $emisor): array
+    {
+        return [
+            'emisor_id' => $emisor->id,
+            'emisor_rfc' => $emisor->rfc,
+            'emisor_razon_social' => $emisor->razon_social,
+            'emisor_regimen_fiscal' => $emisor->regimen_fiscal,
+            'emisor_cp' => $emisor->cp,
         ];
     }
 }

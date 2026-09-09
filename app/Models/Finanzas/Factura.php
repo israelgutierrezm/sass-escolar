@@ -121,6 +121,10 @@ class Factura extends Model
         'sat_estado_cancelacion',
         'sat_error',
         'sat_consultado_en',
+        'es_global',
+        'periodicidad_global',
+        'periodo_global_meses',
+        'periodo_global_anio',
     ];
 
     protected function casts(): array
@@ -132,7 +136,14 @@ class Factura extends Model
             'fecha_timbrado' => 'datetime',
             'cancelada_en' => 'datetime',
             'sat_consultado_en' => 'datetime',
+            'es_global' => 'boolean',
         ];
+    }
+
+    /** ¿Es una factura global (ventas al público en general de un periodo)? */
+    public function esGlobal(): bool
+    {
+        return (bool) $this->es_global;
     }
 
     public function matriculaOferta(): BelongsTo

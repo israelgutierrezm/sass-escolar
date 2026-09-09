@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Jobs\TimbrarFactura;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\DatosFacturacion;
+use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
@@ -16,6 +19,7 @@ use App\Services\DescargaMasivaCfdi;
 use App\Services\EmisorFactura;
 use App\Services\EmisorNotaCredito;
 use App\Support\CatalogosSat;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -81,6 +85,12 @@ class FacturaController extends Controller
                 Factura::ESTATUS_ERROR,
                 Factura::ESTATUS_CANCELADA,
             ],
+            // Factura global: las razones sociales, las periodicidades y la
+            // previsualización de lo que sumaría (cuando se piden sus parámetros).
+            'emisoresGlobal' => EmisorFiscal::query()->activos()->orderBy('razon_social')->get(['id', 'razon_social', 'rfc']),
+            'periodicidadesGlobal' => CatalogosSat::periodicidades(),
+            'periodicidadDefault' => app(Ajustes::class)->texto(CatalogoAjustes::FACTURA_PERIODICIDAD_GLOBAL),
+            'previsualizacionGlobal' => $this->previsualizarGlobal($request),
         ]);
     }
 
@@ -312,6 +322,91 @@ class FacturaController extends Controller
     }
 
     /**
+     * Emite la factura GLOBAL de un periodo: un CFDI al público en general por lo
+     * cobrado sin factura nominativa. El periodo es un mes de calendario; la
+     * periodicidad es la etiqueta del SAT. Emitirla hace su CORTE —esos pagos
+     * quedan facturados y ya no se pueden facturar nominativos—.
+     */
+    public function emitirGlobal(Request $request): RedirectResponse
+    {
+        $datos = $request->validate([
+            'emisor_id' => ['required', Rule::exists('emisores_fiscales', 'id')],
+            'periodicidad' => ['required', Rule::in(CatalogosSat::clavesPeriodicidad())],
+            'mes' => ['required', 'integer', 'between:1,12'],
+            'anio' => ['required', 'integer', 'between:2020,2100'],
+        ]);
+
+        $emisor = EmisorFiscal::findOrFail($datos['emisor_id']);
+        [$desde, $hasta, $meses] = $this->rangoGlobal((int) $datos['mes'], (int) $datos['anio'], $datos['periodicidad']);
+
+        // Los pagos se DERIVAN del periodo en el servidor, no llegan del
+        // formulario: la global ampara todo lo no facturado, no una selección.
+        $pagoIds = $this->emisor->globalizables($emisor, $desde, $hasta)->pluck('id')->all();
+
+        try {
+            $factura = $this->emisor->emitirGlobal($emisor, $pagoIds, $datos['periodicidad'], $meses, (int) $datos['anio']);
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect("/finanzas/facturas/{$factura->id}")
+            ->with('advertencia', 'La factura global se mandó a timbrar. En cuanto el PAC responda aparecerá su folio fiscal.');
+    }
+
+    /**
+     * El rango de fechas del periodo (un mes de calendario) y la clave c_Meses.
+     *
+     * @return array{0: string, 1: string, 2: string}  desde, hasta, meses
+     */
+    private function rangoGlobal(int $mes, int $anio, string $periodicidad): array
+    {
+        $inicio = CarbonImmutable::create($anio, $mes, 1);
+
+        // c_Meses: 01-12 en las periodicidades cortas, 13-18 en bimestral.
+        $meses = $periodicidad === '05'
+            ? str_pad((string) (13 + intdiv($mes - 1, 2)), 2, '0', STR_PAD_LEFT)
+            : sprintf('%02d', $mes);
+
+        return [$inicio->toDateString(), $inicio->endOfMonth()->toDateString(), $meses];
+    }
+
+    /**
+     * La previsualización de la global: cuántos pagos y cuánto sumarían, para que
+     * quien la emite lo vea antes. Null si no se pidió (no viajan los parámetros).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function previsualizarGlobal(Request $request): ?array
+    {
+        $emisorId = $request->integer('global_emisor');
+        $mes = $request->integer('global_mes');
+        $anio = $request->integer('global_anio');
+
+        if ($emisorId === 0 || $mes === 0 || $anio === 0) {
+            return null;
+        }
+
+        $emisor = EmisorFiscal::find($emisorId);
+
+        if ($emisor === null) {
+            return null;
+        }
+
+        [$desde, $hasta] = $this->rangoGlobal($mes, $anio, '04');
+        $pagos = $this->emisor->globalizables($emisor, $desde, $hasta);
+
+        return [
+            'emisor_id' => $emisorId,
+            'mes' => $mes,
+            'anio' => $anio,
+            'pagos' => $pagos->count(),
+            'total' => round($pagos->sum(fn (Pago $p) => (float) $p->monto), 2),
+            'desde' => $desde,
+            'hasta' => $hasta,
+        ];
+    }
+
+    /**
      * Emite la nota de crédito que reduce una factura sin cancelarla.
      *
      * Es la corrección que `refacturar` no cubre: el importe estaba bien el día
@@ -471,6 +566,9 @@ class FacturaController extends Controller
             'matricula_id' => $factura->matricula_oferta_id,
             'matricula' => $factura->matriculaOferta?->matricula,
             'alumno' => $factura->matriculaOferta?->persona?->nombreCompleto(),
+            // Una global no cuelga de una matrícula: se muestra como tal en vez
+            // de una fila sin alumno que parezca un dato faltante.
+            'es_global' => $factura->esGlobal(),
         ];
     }
 

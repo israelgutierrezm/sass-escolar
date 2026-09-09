@@ -7,11 +7,13 @@ namespace App\Services;
 use App\Jobs\TimbrarFactura;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
 use App\Services\Cfdi\ComplementoEducativo;
 use App\Services\Cfdi\Pac;
+use App\Support\PublicoEnGeneral;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -258,6 +260,111 @@ class EmisorFactura
             ->whereNotIn('id', $this->pagosYaFacturados())
             ->orderByDesc('momento')
             ->get();
+    }
+
+    /**
+     * Los pagos que entrarían a la factura GLOBAL de una razón social en un
+     * periodo: cobrados, no amparados por una factura viva, de una matrícula cuyo
+     * emisor es ÉSTE. La global agrupa lo que nadie facturó nominativamente.
+     *
+     * @return Collection<int, Pago>
+     */
+    public function globalizables(EmisorFiscal $emisor, string $desde, string $hasta): Collection
+    {
+        $ocupados = $this->pagosYaFacturados();
+        $emisorDe = [];
+
+        return Pago::query()
+            ->with(['metodoPago', 'adeudos.concepto', 'matriculaOferta.oferta'])
+            ->whereNotNull('matricula_oferta_id')
+            ->cobrados()
+            ->whereBetween('momento', [$desde.' 00:00:00', $hasta.' 23:59:59'])
+            ->whereNotIn('id', $ocupados)
+            ->orderBy('momento')
+            ->get()
+            ->filter(function (Pago $p) use ($emisor, &$emisorDe) {
+                $matricula = $p->matriculaOferta;
+
+                if ($matricula === null) {
+                    return false;
+                }
+
+                // La razón social se resuelve por matrícula; se memoiza para no
+                // repetir la consulta por cada pago de la misma matrícula.
+                $emisorDe[$matricula->id] ??= $this->resolutorEmisor->para($matricula)?->id;
+
+                return $emisorDe[$matricula->id] === $emisor->id;
+            })
+            ->values();
+    }
+
+    /**
+     * Emite la factura GLOBAL de un periodo: UN CFDI al público en general que
+     * ampara los pagos elegidos, con su `InformacionGlobal`. Sin IEDU —la global
+     * no es nominativa—, con el receptor genérico del SAT (preset, no inventado)
+     * y el emisor congelado. Emitirla hace el CORTE: sus pagos quedan ocupados.
+     *
+     * @param  array<int, int>  $pagoIds
+     *
+     * @throws RuntimeException si no queda ningún pago por globalizar
+     */
+    public function emitirGlobal(EmisorFiscal $emisor, array $pagoIds, string $periodicidad, string $meses, int $anio): Factura
+    {
+        return DB::transaction(function () use ($emisor, $pagoIds, $periodicidad, $meses, $anio) {
+            // El bloqueo serializa contra otra global (o nominativa) que tome los
+            // mismos pagos: la segunda espera y ve los que ya ocupó la primera.
+            Pago::query()->whereIn('id', $pagoIds)->lockForUpdate()->get();
+
+            $ocupados = $this->pagosYaFacturados();
+
+            $pagos = Pago::query()
+                ->with(['metodoPago', 'adeudos.concepto'])
+                ->whereIn('id', $pagoIds)
+                ->whereNotNull('matricula_oferta_id')
+                ->cobrados()
+                ->whereNotIn('id', $ocupados)
+                ->get();
+
+            if ($pagos->isEmpty()) {
+                throw new RuntimeException('No quedó ningún pago por globalizar: ya se facturaron o no están cobrados.');
+            }
+
+            $conceptos = $pagos->mapWithKeys(fn (Pago $p) => [$p->id => $this->conceptoDe($p)]);
+            $renglones = $pagos->map(fn (Pago $pago) => $this->renglonDe($pago, $conceptos[$pago->id]));
+
+            $subtotal = round($renglones->sum('importe'), 2);
+            $iva = round($renglones->sum('iva'), 2);
+            $receptor = PublicoEnGeneral::receptor((string) $emisor->cp);
+
+            $factura = Factura::create([
+                'matricula_oferta_id' => null,
+                ...$this->resolutorEmisor->datosDe($emisor),
+                'receptor_rfc' => $receptor['rfc'],
+                'receptor_razon_social' => $receptor['razon_social'],
+                'receptor_uso_cfdi' => $receptor['uso_cfdi'],
+                'receptor_regimen_fiscal' => $receptor['regimen_fiscal'],
+                'receptor_cp' => $receptor['cp'],
+                'forma_pago_sat' => $this->formaPagoDe($pagos),
+                'metodo_pago_sat' => 'PUE',
+                'subtotal' => $subtotal,
+                'iva' => $iva,
+                'total' => round($subtotal + $iva, 2),
+                'pac' => $this->pac->nombre(),
+                'estatus' => Factura::ESTATUS_BORRADOR,
+                'es_global' => true,
+                'periodicidad_global' => $periodicidad,
+                'periodo_global_meses' => $meses,
+                'periodo_global_anio' => $anio,
+            ]);
+
+            foreach ($renglones as $renglon) {
+                $factura->conceptos()->create($renglon);
+            }
+
+            TimbrarFactura::dispatch($factura->id);
+
+            return $factura;
+        });
     }
 
     /**

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BotonAccion from '@/Components/BotonAccion.vue';
@@ -20,6 +20,7 @@ interface Fila {
     fecha_timbrado: string | null;
     matricula: string | null;
     alumno: string | null;
+    es_global: boolean;
 }
 
 const props = defineProps<{
@@ -33,6 +34,11 @@ const props = defineProps<{
     filtros: { estatus: string; discrepancia: boolean };
     estatus: string[];
     discrepancias: number;
+    /** Factura global: razones sociales, periodicidades y la previsualización. */
+    emisoresGlobal: { id: number; razon_social: string; rfc: string }[];
+    periodicidadesGlobal: { clave: string; texto: string }[];
+    periodicidadDefault: string;
+    previsualizacionGlobal: { emisor_id: number; mes: number; anio: number; pagos: number; total: number; desde: string; hasta: string } | null;
 }>();
 
 const vista = ref<'lista' | 'cuadricula'>('lista');
@@ -74,6 +80,50 @@ const urlPaquete = computed(() => {
 });
 
 const descargando = ref(false);
+
+/*
+ * La factura GLOBAL de un periodo: agrupa lo cobrado sin factura nominativa en
+ * un CFDI al público en general. Arranca en el mes pasado, que es el que ya se
+ * puede cerrar. La previsualización viaja por la URL (es una lectura); emitir es
+ * un POST y hace el corte.
+ */
+const mesesNombre = [
+    { v: 1, t: 'Enero' }, { v: 2, t: 'Febrero' }, { v: 3, t: 'Marzo' }, { v: 4, t: 'Abril' },
+    { v: 5, t: 'Mayo' }, { v: 6, t: 'Junio' }, { v: 7, t: 'Julio' }, { v: 8, t: 'Agosto' },
+    { v: 9, t: 'Septiembre' }, { v: 10, t: 'Octubre' }, { v: 11, t: 'Noviembre' }, { v: 12, t: 'Diciembre' },
+];
+const mostrarGlobal = ref(false);
+const global = ref({
+    emisor_id: props.emisoresGlobal[0]?.id ?? null,
+    periodicidad: props.periodicidadDefault || '04',
+    mes: mesPasado.getMonth() + 1,
+    anio: mesPasado.getFullYear(),
+});
+
+function verGlobal(): void {
+    router.get('/finanzas/facturas', {
+        ...props.filtros,
+        global_emisor: global.value.emisor_id,
+        global_mes: global.value.mes,
+        global_anio: global.value.anio,
+    }, { preserveScroll: true, preserveState: true, only: ['previsualizacionGlobal'] });
+}
+
+const emitiendoGlobal = ref(false);
+function emitirGlobal(): void {
+    emitiendoGlobal.value = true;
+    router.post('/finanzas/facturas/global', global.value, {
+        onFinish: () => { emitiendoGlobal.value = false; },
+    });
+}
+
+/** La previsualización corresponde al periodo que se está mirando. */
+const previewVigente = computed(() =>
+    props.previsualizacionGlobal
+    && props.previsualizacionGlobal.emisor_id === global.value.emisor_id
+    && props.previsualizacionGlobal.mes === global.value.mes
+    && props.previsualizacionGlobal.anio === global.value.anio,
+);
 
 const colorEstatus: Record<string, string> = {
     borrador: 'text-suave bg-fondo',
@@ -137,6 +187,75 @@ const ICONO_FACTURA =
                 </a>
             </template>
         </BarraListado>
+
+        <!-- La factura global del periodo. Se despliega como el paquete mensual. -->
+        <section class="tarjeta mb-4 p-4">
+            <button
+                type="button"
+                class="flex w-full items-center justify-between gap-3 text-left text-sm font-medium"
+                @click="mostrarGlobal = !mostrarGlobal"
+            >
+                <span>Factura global del periodo
+                    <span class="font-normal" :style="{ color: 'var(--color-suave)' }">— lo cobrado sin factura nominativa, al público en general</span>
+                </span>
+                <span :style="{ color: 'var(--color-suave)' }">{{ mostrarGlobal ? '−' : '+' }}</span>
+            </button>
+
+            <div v-if="mostrarGlobal" class="mt-3">
+                <p v-if="!emisoresGlobal.length" class="text-sm" :style="{ color: 'var(--color-suave)' }">
+                    Da de alta una razón social en «Razones sociales» para poder emitir la global.
+                </p>
+                <template v-else>
+                    <div class="grid gap-3 sm:grid-cols-4">
+                        <label class="text-sm">
+                            <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Razón social</span>
+                            <select v-model="global.emisor_id" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }">
+                                <option v-for="e in emisoresGlobal" :key="e.id" :value="e.id">{{ e.razon_social }}</option>
+                            </select>
+                        </label>
+                        <label class="text-sm">
+                            <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Mes</span>
+                            <select v-model.number="global.mes" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }">
+                                <option v-for="m in mesesNombre" :key="m.v" :value="m.v">{{ m.t }}</option>
+                            </select>
+                        </label>
+                        <label class="text-sm">
+                            <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Año</span>
+                            <input v-model.number="global.anio" type="number" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }" />
+                        </label>
+                        <label class="text-sm">
+                            <span class="mb-1 block text-xs" :style="{ color: 'var(--color-suave)' }">Periodicidad</span>
+                            <select v-model="global.periodicidad" class="w-full rounded-lg border bg-transparent px-3 py-1.5" :style="{ borderColor: 'var(--color-borde)' }">
+                                <option v-for="p in periodicidadesGlobal" :key="p.clave" :value="p.clave">{{ p.texto }}</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-3">
+                        <button type="button" class="rounded-lg border px-4 py-2 text-sm font-medium" :style="{ borderColor: 'var(--color-borde)' }" @click="verGlobal">
+                            Ver qué incluye
+                        </button>
+                        <span v-if="previewVigente && previsualizacionGlobal" class="text-sm">
+                            {{ previsualizacionGlobal.pagos }} {{ previsualizacionGlobal.pagos === 1 ? 'pago' : 'pagos' }} ·
+                            <strong>{{ pesos.format(previsualizacionGlobal.total) }}</strong>
+                        </span>
+                        <button
+                            v-if="previewVigente && previsualizacionGlobal && previsualizacionGlobal.pagos > 0"
+                            type="button"
+                            class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
+                            :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
+                            :disabled="emitiendoGlobal"
+                            @click="emitirGlobal"
+                        >
+                            {{ emitiendoGlobal ? 'Emitiendo…' : 'Emitir factura global' }}
+                        </button>
+                    </div>
+                    <p class="mt-2 text-xs" :style="{ color: 'var(--color-suave)' }">
+                        Emitirla hace el CORTE del periodo: esos pagos quedan facturados y ya no se pueden facturar a nombre del alumno.
+                    </p>
+                </template>
+            </div>
+        </section>
 
         <!--
             El paquete para contabilidad. Se despliega porque es mensual: tenerlo

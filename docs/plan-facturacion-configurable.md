@@ -82,13 +82,32 @@ columna nueva + tocar el driver del PAC; el modelo de datos ya lo trata como dat
 SEPARADO, que es lo que R06.06 exige; la entrega por correo llega con el
 autoservicio). No se toca el timbrado ni el flujo del PAC.
 
-### Rebanada 2 — Público en general + factura global
+### Rebanada 2 — Público en general + factura global ✅ (2026-09-09)
 
-Perfil genérico por emisor (RFC XAXX010101000, régimen 616, uso S01/G03, CP del
-lugar de expedición) con presets validados; CFDI **global** por periodo usando el
-`emitirFacturaGlobal` latente y el objeto `InformacionGlobal` (periodicidad, mes,
-año), agrupando los pagos no facturados. **R06.07/R06.08** + tratamiento global.
-Pide decisiones fiscales (periodicidad, corte, RFC/régimen genérico).
+Decidido con el cliente: **on-demand** (el admin la emite), agrupa **todo lo
+cobrado y NO facturado del periodo**, periodicidad **mensual** configurable.
+
+- **Público en general = PRESET del SAT**, no editable (`App\Support\PublicoEnGeneral`):
+  RFC `XAXX010101000`, «PÚBLICO EN GENERAL», régimen `616`, uso `S01`; el CP es
+  el lugar de expedición del emisor. R06.07 «no inventar identidades fiscales».
+- **CFDI global** (`facturas.es_global` + `periodicidad_global` + `periodo_global_meses`
+  + `periodo_global_anio`; `matricula_oferta_id` ya era nullable): `EmisorFactura::emitirGlobal`
+  arma UN comprobante al genérico con `InformacionGlobal` (el driver la mete sólo
+  si `es_global`), un renglón por pago, **sin IEDU** (no es nominativa), emisor
+  congelado. `globalizables(emisor, desde, hasta)` da los pagos del periodo de esa
+  razón social —lo no facturado—.
+- **El CORTE**: emitir la global ocupa esos pagos (misma `pagosOcupados`), así que
+  ya no se facturan nominativos. Sale de `/finanzas/facturas` (`can:facturar`),
+  con previsualización de cuántos pagos y cuánto antes de emitir.
+- Ajuste `facturacion.periodicidad_global` (SELECCIÓN, default mensual). El
+  periodo es un mes de calendario; la periodicidad es la etiqueta del SAT
+  (bimestral mapea a c_Meses 13-18).
+- Pruebas: `scripts/prueba-factura-global.php` (15 verif, `es_global` y el bloque
+  global comprobados por mutación). `prueba-facturacion` 51/0 sin regresión.
+
+**Fuera de esta rebanada**: el respaldo automático a público-general cuando un
+pago se confirma sin datos nominativos (R06.08/R06.09) vive en la rebanada 4; y
+la periodicidad como corte real (quincenal = 15 días) —hoy el periodo es el mes—.
 
 ### Rebanada 3 — Autoservicio alumno/padre ✅ (2026-09-09) · SOLICITAR + GENERAR
 

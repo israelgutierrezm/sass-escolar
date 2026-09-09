@@ -80,6 +80,8 @@ final class CatalogoAjustes
 
     public const FACTURA_AUTOSERVICIO_GENERAR = 'facturacion.autoservicio_generar';
 
+    public const FACTURA_PERIODICIDAD_GLOBAL = 'facturacion.periodicidad_global';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -407,6 +409,18 @@ final class CatalogoAjustes
                 porDefecto: false,
                 consecuencia: 'Enciéndelo sólo con la facturación operando: el alumno timbra a nombre de la escuela. '
                     .'Apagarlo esconde el botón; no borra lo ya emitido.',
+            ),
+
+            new Ajuste(
+                clave: self::FACTURA_PERIODICIDAD_GLOBAL,
+                grupo: 'Finanzas',
+                etiqueta: 'Periodicidad de la factura global',
+                descripcion: 'Cada cuánto se agrupa lo cobrado SIN factura nominativa en un CFDI global al '
+                    .'público en general. Es el valor por omisión al emitirla; quien la emite puede cambiarlo. '
+                    .'Emitir la global de un periodo hace su CORTE: esos pagos ya no se facturan nominativos.',
+                tipo: Ajuste::SELECCION,
+                porDefecto: '04',
+                opciones: ['01' => 'Diario', '02' => 'Semanal', '03' => 'Quincenal', '04' => 'Mensual', '05' => 'Bimestral'],
             ),
 
             new Ajuste(

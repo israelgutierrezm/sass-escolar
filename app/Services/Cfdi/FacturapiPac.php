@@ -207,7 +207,29 @@ class FacturapiPac implements Pac
             'payment_form' => $factura->forma_pago_sat,
             'payment_method' => $factura->metodo_pago_sat,
             'currency' => 'MXN',
-        ] + $this->complementos($factura) + $this->egreso($factura);
+        ] + $this->complementos($factura) + $this->egreso($factura) + $this->global($factura);
+    }
+
+    /**
+     * La InformacionGlobal de una factura global (ventas al público en general):
+     * periodicidad, mes y año. Se SUMA sólo cuando la factura es global; en una
+     * nominativa no viaja.
+     *
+     * @return array<string, mixed>
+     */
+    private function global(Factura $factura): array
+    {
+        if (! $factura->esGlobal()) {
+            return [];
+        }
+
+        return [
+            'global' => [
+                'periodicity' => $factura->periodicidad_global,
+                'months' => $factura->periodo_global_meses,
+                'year' => (int) $factura->periodo_global_anio,
+            ],
+        ];
     }
 
     /**

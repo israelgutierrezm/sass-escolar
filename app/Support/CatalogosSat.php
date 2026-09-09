@@ -173,4 +173,27 @@ final class CatalogosSat
     {
         return array_map(fn (array $r) => $r['clave'], self::regimenesFiscales());
     }
+
+    /**
+     * c_Periodicidad: cada cuánto se emite la factura global de las ventas al
+     * público en general.
+     *
+     * @return array<int, array{clave: string, texto: string}>
+     */
+    public static function periodicidades(): array
+    {
+        return [
+            ['clave' => '01', 'texto' => '01 · Diario'],
+            ['clave' => '02', 'texto' => '02 · Semanal'],
+            ['clave' => '03', 'texto' => '03 · Quincenal'],
+            ['clave' => '04', 'texto' => '04 · Mensual'],
+            ['clave' => '05', 'texto' => '05 · Bimestral'],
+        ];
+    }
+
+    /** @return array<int, string> */
+    public static function clavesPeriodicidad(): array
+    {
+        return array_map(fn (array $p) => $p['clave'], self::periodicidades());
+    }
 }
