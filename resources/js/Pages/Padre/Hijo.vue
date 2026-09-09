@@ -75,8 +75,8 @@ const props = defineProps<{
     }[];
     /** Mínimo para abonar en línea. 0 = sin mínimo. */
     abonoMinimo: number;
-    /** Si la escuela abrió el canal de solicitar factura y el vínculo lo permite. */
-    puedeSolicitarFactura: boolean;
+    /** Autoservicio de factura: «solicitar», «generar» o null. */
+    facturaModo: 'solicitar' | 'generar' | null;
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
     conducta: {
         incidencias: { id: number; tipo: string | null; nivel: number; fecha: string | null; descripcion: string }[];
@@ -426,17 +426,17 @@ function colorCalif(estatusClave: string | null): string {
                 </div>
 
                 <!-- Solicitar factura y ver las propias. Igual que en el estado de cuenta del alumno. -->
-                <div v-if="puedeSolicitarFactura || f.solicitudes_factura.length" class="mt-4 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
+                <div v-if="facturaModo || f.solicitudes_factura.length" class="mt-4 border-t pt-3" :style="{ borderColor: 'var(--color-borde)' }">
                     <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <p class="text-xs font-medium uppercase tracking-wide" :style="{ color: 'var(--color-suave)' }">Facturación</p>
                         <button
-                            v-if="puedeSolicitarFactura"
+                            v-if="facturaModo"
                             type="button"
                             class="rounded-lg border px-3 py-1.5 text-xs font-medium"
                             :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
                             @click="solicitando[f.matricula_id] = !solicitando[f.matricula_id]"
                         >
-                            {{ solicitando[f.matricula_id] ? 'Cancelar' : 'Solicitar factura' }}
+                            {{ solicitando[f.matricula_id] ? 'Cancelar' : (facturaModo === 'generar' ? 'Generar factura' : 'Solicitar factura') }}
                         </button>
                     </div>
 
@@ -446,6 +446,7 @@ function colorCalif(estatusClave: string | null): string {
                         :pagos="f.factura_autoservicio.pagos"
                         :receptor="f.factura_autoservicio.receptor"
                         :catalogos="f.factura_autoservicio.catalogos"
+                        :modo="facturaModo ?? 'solicitar'"
                         class="mb-3"
                     />
 

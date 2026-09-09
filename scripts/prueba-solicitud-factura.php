@@ -94,6 +94,8 @@ try {
     $pago1 = $pago(2000);
     $pago2 = $pago(1500);
     $pago3 = $pago(1000);
+    $pago4 = $pago(800);
+    $pago5 = $pago(600);
 
     echo '1. Solicitar: nace pendiente, con los pagos y el receptor congelados'.PHP_EOL;
     $sol = $gestor->solicitar($matricula, [$pago1->id], $receptor, null);
@@ -182,7 +184,47 @@ try {
     $propsCuenta = json_decode($finanzas->cuenta($peticionCuenta, $matricula)->toResponse($peticionCuenta)->getContent(), true)['props'];
     verificar('Trae la lista de solicitudes (historial, siempre)',
         is_array($propsCuenta['solicitudesFactura'] ?? null) && count($propsCuenta['solicitudesFactura']) >= 1);
-    verificar('Y la bandera puedeSolicitarFactura', array_key_exists('puedeSolicitarFactura', $propsCuenta));
+    verificar('Y el modo del autoservicio', array_key_exists('facturaModo', $propsCuenta));
+
+    echo PHP_EOL.'7. Generar al momento: nace el CFDI, y queda como solicitud emitida'.PHP_EOL;
+    $facturaGen = $gestor->generarDirecto($matricula, [$pago4->id], $receptor, null);
+    if ($facturaGen->xml_ruta !== null) { $archivos[] = $facturaGen->xml_ruta; }
+    verificar('La factura se timbró al instante', $facturaGen->fresh()->uuid !== null);
+    $constancia = SolicitudFactura::where('factura_id', $facturaGen->id)->first();
+    verificar('Deja constancia como solicitud EMITIDA', $constancia !== null && $constancia->estado === SolicitudFactura::EMITIDA);
+    verificar('El pago generado ya no es facturable',
+        ! app(App\Services\EmisorFactura::class)->facturables($matricula->id)->pluck('id')->contains($pago4->id));
+
+    $genVacio = false;
+    try { $gestor->generarDirecto($matricula, [], $receptor, null); } catch (AvisoParaElUsuario) { $genVacio = true; }
+    verificar('Generar sin operaciones se rehúsa', $genVacio);
+
+    echo PHP_EOL.'8. El gate de GENERAR, aparte del de solicitar'.PHP_EOL;
+    $peticionGenerar = function (int $pagoId) use ($matricula, $receptor) {
+        $r = Request::create('/', 'POST', ['pago_ids' => [$pagoId]] + $receptor);
+        app()->instance('request', $r);
+
+        return $r;
+    };
+
+    app(Ajustes::class)->guardar([CatalogoAjustes::FACTURA_AUTOSERVICIO_GENERAR => false]);
+    $genApagado = false;
+    try {
+        $ctrl->generar($peticionGenerar($pago5->id), $matricula);
+    } catch (AvisoParaElUsuario $e) {
+        $genApagado = $e->getStatusCode() === 404;
+    }
+    verificar('Con GENERAR apagado, responde 404', $genApagado);
+    verificar('Y no nació ninguna factura del pago5',
+        SolicitudFactura::where('matricula_oferta_id', $matricula->id)
+            ->whereJsonContains('pago_ids', $pago5->id)->doesntExist());
+
+    app(Ajustes::class)->guardar([CatalogoAjustes::FACTURA_AUTOSERVICIO_GENERAR => true]);
+    $ctrl->generar($peticionGenerar($pago5->id), $matricula);
+    $gen5 = SolicitudFactura::where('matricula_oferta_id', $matricula->id)
+        ->whereJsonContains('pago_ids', $pago5->id)->first();
+    if (($f5 = $gen5?->factura) && $f5->xml_ruta !== null) { $archivos[] = $f5->xml_ruta; }
+    verificar('Con GENERAR encendido, la factura nace emitida', $gen5 !== null && $gen5->estado === SolicitudFactura::EMITIDA && $gen5->factura_id !== null);
 } catch (Throwable $e) {
     echo PHP_EOL.'EXCEPCIÓN: '.$e->getMessage().PHP_EOL.$e->getFile().':'.$e->getLine().PHP_EOL;
     $fallos[] = 'excepción: '.$e->getMessage();

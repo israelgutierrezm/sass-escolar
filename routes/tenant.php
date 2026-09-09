@@ -1945,6 +1945,9 @@ Route::middleware([
                  */
                 Route::post('/cuentas/{matricula}/solicitar-factura', [SolicitudFacturaController::class, 'solicitar'])
                     ->whereNumber('matricula')->middleware('can:solicitar-factura')->name('solicitar-factura');
+                // Generar al momento: capacidad y permiso APARTE de solicitar.
+                Route::post('/cuentas/{matricula}/generar-factura', [SolicitudFacturaController::class, 'generar'])
+                    ->whereNumber('matricula')->middleware('can:generar-mi-factura')->name('generar-factura');
                 Route::get('/solicitudes-factura/{solicitud}/cfdi/{tipo}', [SolicitudFacturaController::class, 'descargarCfdi'])
                     ->whereNumber('solicitud')->name('solicitud-cfdi');
             });

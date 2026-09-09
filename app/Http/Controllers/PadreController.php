@@ -110,10 +110,14 @@ class PadreController extends Controller
 
         // El autoservicio de factura: el canal abierto por la escuela, el permiso
         // de faceta, y que este vínculo alcance lo financiero. Las tres, como los
-        // saldos.
-        $puedeSolicitarFactura = $vinculo->puede_ver_finanzas
+        // saldos. Generar (emite al momento) manda sobre solicitar si ambos.
+        $puedeGenerar = $vinculo->puede_ver_finanzas
+            && $request->user()->can('generar-mi-factura')
+            && app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_GENERAR);
+        $puedeSolicitar = $vinculo->puede_ver_finanzas
             && $request->user()->can('solicitar-factura')
             && app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_SOLICITUD);
+        $facturaModo = $puedeGenerar ? 'generar' : ($puedeSolicitar ? 'solicitar' : null);
 
         $matriculas = $hijo->matriculas()
             ->with([
@@ -159,9 +163,9 @@ class PadreController extends Controller
                 ? $matriculas->map(fn (MatriculaOferta $m) => $this->academicoDe($m))->values()
                 : null,
             'finanzas' => $vinculo->puede_ver_finanzas
-                ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m, $puedeSolicitarFactura))->values()
+                ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m, $facturaModo !== null))->values()
                 : null,
-            'puedeSolicitarFactura' => $puedeSolicitarFactura,
+            'facturaModo' => $facturaModo,
             /*
              * Con qué puede pagar aquí mismo.
              *

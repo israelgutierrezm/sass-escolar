@@ -90,7 +90,7 @@ lugar de expedición) con presets validados; CFDI **global** por periodo usando 
 año), agrupando los pagos no facturados. **R06.07/R06.08** + tratamiento global.
 Pide decisiones fiscales (periodicidad, corte, RFC/régimen genérico).
 
-### Rebanada 3 — Autoservicio alumno/padre · SOLICITAR ✅ (2026-09-09)
+### Rebanada 3 — Autoservicio alumno/padre ✅ (2026-09-09) · SOLICITAR + GENERAR
 
 El núcleo seguro y alineado con la spec: el alumno y su familia **SOLICITAN**, la
 escuela emite. R06.01 (la emisión no se concede al alumno) + R06.11 (estados) +
@@ -117,9 +117,15 @@ R06.15 (bandeja) + R06.16 (mensajes/descarga).
 - Pruebas: `scripts/prueba-solicitud-factura.php` (21 verif, 3 mutaciones), sweep
   del menú, pantallas-con-puerta, auditoría 69.
 
-**Pendiente de esta rebanada**: «GENERAR factura» inmediata (el alumno emite su
-propio CFDI al vuelo, con su perfil), como capacidad configurable aparte de
-solicitar. La emisión/cancelación/sustitución siguen sin concederse al alumno.
+- **GENERAR (3b)**: el alumno/padre emite su propio CFDI al momento, con su
+  perfil, sin bandeja. Capacidad e interruptor APARTE de solicitar
+  (`facturacion.autoservicio_generar`, permiso `generar-mi-factura`), porque
+  emitir a nombre de la escuela es más delicado —default apagado, se enciende
+  con el PAC operando—. Reusa el MISMO motor y las MISMAS guardas
+  (`GestorSolicitudFactura::generarDirecto`), y deja constancia como una
+  solicitud ya `emitida` para que el historial y la descarga sirvan igual. En el
+  portal, «generar» manda sobre «solicitar» cuando la escuela abre las dos
+  (`facturaModo`). Cancelación y sustitución siguen sin concederse al alumno.
 
 ### Rebanada 4 — Facturación automática al confirmar pago
 

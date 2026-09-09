@@ -43,7 +43,7 @@ class SolicitudFacturaController extends Controller
     // ── Autoservicio (alumno / familia) ────────────────────────────────────
 
     /**
-     * El alumno o su familia pide factura de sus pagos.
+     * El alumno o su familia PIDE factura de sus pagos (la emite la escuela).
      */
     public function solicitar(Request $request, MatriculaOferta $matricula): RedirectResponse
     {
@@ -58,11 +58,61 @@ class SolicitudFacturaController extends Controller
             'La solicitud de factura en línea no está disponible en esta escuela.',
         );
 
+        $datos = $this->datosDelAutoservicio($request);
+
+        try {
+            $this->gestor->solicitar($matricula, $datos['pago_ids'], $datos['receptor'], $request->user());
+        } catch (AvisoParaElUsuario|RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with(
+            'exito',
+            'Recibimos tu solicitud de factura. La escuela la revisa y, en cuanto la emita, tu CFDI aparecerá aquí.',
+        );
+    }
+
+    /**
+     * El alumno o su familia GENERA su factura al momento: nace el CFDI sin pasar
+     * por la bandeja. La escuela lo abre por separado —emitir a su nombre es
+     * delicado—; misma validación y mismas guardas que solicitar.
+     */
+    public function generar(Request $request, MatriculaOferta $matricula): RedirectResponse
+    {
+        $this->exigirQuePuedaVerLaCuenta($request, $matricula);
+
+        AvisoParaElUsuario::aMenosQue(
+            app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_GENERAR),
+            404,
+            'Generar tu factura en línea no está disponible en esta escuela.',
+        );
+
+        $datos = $this->datosDelAutoservicio($request);
+
+        try {
+            $this->gestor->generarDirecto($matricula, $datos['pago_ids'], $datos['receptor'], $request->user());
+        } catch (AvisoParaElUsuario|RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with(
+            'advertencia',
+            'Tu factura se mandó a timbrar. En cuanto el PAC responda, podrás descargar tu CFDI aquí mismo.',
+        );
+    }
+
+    /**
+     * Valida los datos del autoservicio (operaciones + receptor) y los arma.
+     * El receptor va contra el catálogo del SAT, como la emisión: lo que se pide
+     * tiene que poder timbrarse tal cual.
+     *
+     * @return array{pago_ids: array<int, int>, receptor: array<string, string|null>}
+     */
+    private function datosDelAutoservicio(Request $request): array
+    {
         $datos = $request->validate([
             'pago_ids' => ['required', 'array', 'min:1'],
             'pago_ids.*' => ['integer'],
-            // Mismos datos y mismo catálogo que la emisión: lo que el alumno
-            // pida tiene que poder timbrarse tal cual.
             'rfc' => ['required', 'string', 'min:12', 'max:13'],
             'razon_social' => ['required', 'string', 'max:255'],
             'uso_cfdi' => ['required', 'string', Rule::in(CatalogosSat::clavesUsosCfdi())],
@@ -72,28 +122,17 @@ class SolicitudFacturaController extends Controller
             'correo' => ['nullable', 'email', 'max:190'],
         ]);
 
-        try {
-            $this->gestor->solicitar(
-                $matricula,
-                $datos['pago_ids'],
-                [
-                    'rfc' => $datos['rfc'],
-                    'razon_social' => $datos['razon_social'],
-                    'uso_cfdi' => $datos['uso_cfdi'],
-                    'regimen_fiscal' => $datos['regimen_fiscal'],
-                    'cp' => $datos['cp'],
-                    'correo' => $datos['correo'] ?? null,
-                ],
-                $request->user(),
-            );
-        } catch (AvisoParaElUsuario|RuntimeException $e) {
-            return back()->with('error', $e->getMessage());
-        }
-
-        return back()->with(
-            'exito',
-            'Recibimos tu solicitud de factura. La escuela la revisa y, en cuanto la emita, tu CFDI aparecerá aquí.',
-        );
+        return [
+            'pago_ids' => $datos['pago_ids'],
+            'receptor' => [
+                'rfc' => $datos['rfc'],
+                'razon_social' => $datos['razon_social'],
+                'uso_cfdi' => $datos['uso_cfdi'],
+                'regimen_fiscal' => $datos['regimen_fiscal'],
+                'cp' => $datos['cp'],
+                'correo' => $datos['correo'] ?? null,
+            ],
+        ];
     }
 
     /**

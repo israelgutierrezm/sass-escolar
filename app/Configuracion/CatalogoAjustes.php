@@ -78,6 +78,8 @@ final class CatalogoAjustes
 
     public const FACTURA_AUTOSERVICIO_SOLICITUD = 'facturacion.autoservicio_solicitud';
 
+    public const FACTURA_AUTOSERVICIO_GENERAR = 'facturacion.autoservicio_generar';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -386,6 +388,25 @@ final class CatalogoAjustes
                 porDefecto: false,
                 consecuencia: 'Apagarlo esconde el botón de solicitar; NO borra las solicitudes ni las facturas '
                     .'ya emitidas, ni cambia lo que la escuela debe declarar.',
+            ),
+
+            new Ajuste(
+                clave: self::FACTURA_AUTOSERVICIO_GENERAR,
+                grupo: 'Finanzas',
+                etiqueta: 'Dejar que el alumno y su familia GENEREN su factura al momento',
+                descripcion: 'Encendido, el alumno emite su CFDI él mismo desde su portal, con su perfil fiscal, '
+                    .'sin esperar a que la escuela lo revise: el comprobante nace al instante. Es más que «Solicitar». '
+                    .'Apagado —o sólo con «Solicitar» encendido—, la factura la emite el personal.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión y con más razón que solicitar: aquí el
+                 * alumno DISPARA el acto fiscal, y un CFDI mal emitido se corrige
+                 * cancelando ante el SAT. Se enciende con la facturación ya
+                 * conectada al PAC y los perfiles fiscales al día.
+                 */
+                porDefecto: false,
+                consecuencia: 'Enciéndelo sólo con la facturación operando: el alumno timbra a nombre de la escuela. '
+                    .'Apagarlo esconde el botón; no borra lo ya emitido.',
             ),
 
             new Ajuste(

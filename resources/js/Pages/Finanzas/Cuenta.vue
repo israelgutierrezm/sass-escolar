@@ -129,8 +129,8 @@ const props = defineProps<{
     facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
     /** Mínimo para abonar en línea. 0 = sin mínimo. */
     abonoMinimo: number;
-    /** Autoservicio de factura: el panel de solicitar (si el canal está abierto) y el historial. */
-    puedeSolicitarFactura: boolean;
+    /** Autoservicio de factura: «solicitar», «generar» o null (ningún canal abierto). */
+    facturaModo: 'solicitar' | 'generar' | null;
     facturaAutoservicio: {
         pagos: { id: number; monto: number; metodo: string | null; momento: string | null; concepto: string | null }[];
         receptor: { rfc: string | null; razon_social: string | null; uso_cfdi: string | null; regimen_fiscal: string | null; cp: string | null; correo: string | null } | null;
@@ -934,17 +934,17 @@ function firmarConvenio(): void {
             aparece con el canal abierto; el historial se enseña siempre, porque
             apagar el canal esconde el botón, no lo ya pedido.
         -->
-        <section v-if="puedeSolicitarFactura || solicitudesFactura.length" class="tarjeta overflow-hidden">
+        <section v-if="facturaModo || solicitudesFactura.length" class="tarjeta overflow-hidden">
             <header class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
                 <h2 class="text-base font-semibold">Facturación</h2>
                 <button
-                    v-if="puedeSolicitarFactura"
+                    v-if="facturaModo"
                     type="button"
                     class="rounded-lg border px-4 py-2 text-sm font-medium"
                     :style="{ borderColor: 'var(--color-acento)', color: 'var(--color-acento)' }"
                     @click="solicitandoFactura = !solicitandoFactura"
                 >
-                    {{ solicitandoFactura ? 'Cancelar' : 'Solicitar factura' }}
+                    {{ solicitandoFactura ? 'Cancelar' : (facturaModo === 'generar' ? 'Generar factura' : 'Solicitar factura') }}
                 </button>
             </header>
 
@@ -954,6 +954,7 @@ function firmarConvenio(): void {
                     :pagos="facturaAutoservicio.pagos"
                     :receptor="facturaAutoservicio.receptor"
                     :catalogos="facturaAutoservicio.catalogos"
+                    :modo="facturaModo ?? 'solicitar'"
                 />
             </div>
 

@@ -34,11 +34,61 @@ class GestorSolicitudFactura
      */
     public function solicitar(MatriculaOferta $matricula, array $pagoIds, array $receptor, ?Usuario $por): SolicitudFactura
     {
+        return SolicitudFactura::create([
+            'matricula_oferta_id' => $matricula->id,
+            'solicitada_por' => $por?->id,
+            'pago_ids' => $this->elegirFacturables($matricula, $pagoIds),
+            ...$this->columnasReceptor($receptor),
+        ]);
+    }
+
+    /**
+     * El alumno o su familia GENERA su factura al momento: nace el CFDI sin pasar
+     * por la bandeja. Es la capacidad que la escuela abre por separado —emitir a
+     * su nombre es delicado—, y usa el MISMO motor y las MISMAS guardas que
+     * solicitar. Deja constancia como una solicitud ya EMITIDA, para que el
+     * historial y la descarga del portal sirvan igual que cuando la emite la
+     * escuela.
+     *
+     * @param  array<int, int>  $pagoIds
+     * @param  array<string, string|null>  $receptor
+     *
+     * @throws AvisoParaElUsuario|\RuntimeException
+     */
+    public function generarDirecto(MatriculaOferta $matricula, array $pagoIds, array $receptor, ?Usuario $por): Factura
+    {
+        return DB::transaction(function () use ($matricula, $pagoIds, $receptor, $por) {
+            $elegidos = $this->elegirFacturables($matricula, $pagoIds);
+
+            $factura = $this->emisor->emitir($matricula->id, $elegidos, $receptor);
+
+            SolicitudFactura::create([
+                'matricula_oferta_id' => $matricula->id,
+                'solicitada_por' => $por?->id,
+                'pago_ids' => $elegidos,
+                ...$this->columnasReceptor($receptor),
+                'estado' => SolicitudFactura::EMITIDA,
+                'factura_id' => $factura->id,
+                'revisado_en' => now(),
+            ]);
+
+            return $factura;
+        });
+    }
+
+    /**
+     * Los pagos suyos que de verdad se pueden facturar. La lista la da el emisor
+     * —cobrados y no amparados por una factura viva—, así que el portal no puede
+     * facturar algo ajeno ni ya facturado; y no puede haber otra solicitud
+     * pendiente cubriéndolos (el duplicado protege la cobertura de la operación).
+     *
+     * @param  array<int, int>  $pagoIds
+     * @return array<int, int>
+     */
+    private function elegirFacturables(MatriculaOferta $matricula, array $pagoIds): array
+    {
         AvisoParaElUsuario::si($pagoIds === [], 422, 'Elige al menos una operación para facturar.');
 
-        // Los pagos SUYOS que de verdad se pueden facturar: cobrados y no
-        // amparados por una factura viva. La lista la da el emisor, así que el
-        // portal no puede pedir factura de algo ajeno ni de algo ya facturado.
         $facturables = $this->emisor->facturables($matricula->id)->pluck('id')->all();
         $elegidos = array_values(array_intersect(array_map('intval', $pagoIds), $facturables));
 
@@ -48,9 +98,6 @@ class GestorSolicitudFactura
             'Esas operaciones ya no se pueden facturar: quizá ya tienen su factura o el pago no está confirmado.',
         );
 
-        // Que no haya OTRA solicitud pendiente cubriendo alguno de esos pagos: el
-        // control de duplicados protege la cobertura de la operación, no impone
-        // «un pago, una factura».
         $repetidos = array_intersect($elegidos, $this->pagosEnSolicitudPendiente($matricula->id));
 
         AvisoParaElUsuario::si(
@@ -59,17 +106,25 @@ class GestorSolicitudFactura
             'Ya pediste factura de alguna de esas operaciones y sigue pendiente de emitir.',
         );
 
-        return SolicitudFactura::create([
-            'matricula_oferta_id' => $matricula->id,
-            'solicitada_por' => $por?->id,
-            'pago_ids' => $elegidos,
+        return $elegidos;
+    }
+
+    /**
+     * El receptor congelado, en columnas. El correo es de ENTREGA, aparte.
+     *
+     * @param  array<string, string|null>  $receptor
+     * @return array<string, string|null>
+     */
+    private function columnasReceptor(array $receptor): array
+    {
+        return [
             'receptor_rfc' => strtoupper(trim((string) $receptor['rfc'])),
             'receptor_razon_social' => trim((string) $receptor['razon_social']),
             'receptor_uso_cfdi' => $receptor['uso_cfdi'],
             'receptor_regimen_fiscal' => $receptor['regimen_fiscal'],
             'receptor_cp' => $receptor['cp'],
             'receptor_correo' => $receptor['correo'] ?? null,
-        ]);
+        ];
     }
 
     /**

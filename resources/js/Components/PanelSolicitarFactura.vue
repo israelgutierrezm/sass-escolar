@@ -15,18 +15,23 @@ interface PagoFacturable {
     concepto: string | null;
 }
 
-const props = defineProps<{
-    matriculaId: number;
-    pagos: PagoFacturable[];
-    receptor: {
-        rfc: string | null; razon_social: string | null; uso_cfdi: string | null;
-        regimen_fiscal: string | null; cp: string | null; correo: string | null;
-    } | null;
-    catalogos: {
-        usos_cfdi: { clave: string; texto: string }[];
-        regimenes: { clave: string; texto: string }[];
-    };
-}>();
+const props = withDefaults(
+    defineProps<{
+        matriculaId: number;
+        pagos: PagoFacturable[];
+        receptor: {
+            rfc: string | null; razon_social: string | null; uso_cfdi: string | null;
+            regimen_fiscal: string | null; cp: string | null; correo: string | null;
+        } | null;
+        catalogos: {
+            usos_cfdi: { clave: string; texto: string }[];
+            regimenes: { clave: string; texto: string }[];
+        };
+        /** «solicitar»: la escuela la emite. «generar»: nace el CFDI al momento. */
+        modo?: 'solicitar' | 'generar';
+    }>(),
+    { modo: 'solicitar' },
+);
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
@@ -44,8 +49,12 @@ const total = computed(() =>
     props.pagos.filter((p) => form.pago_ids.includes(p.id)).reduce((s, p) => s + p.monto, 0),
 );
 
-function solicitar(): void {
-    form.post(`/finanzas/cuentas/${props.matriculaId}/solicitar-factura`, {
+const generando = computed(() => props.modo === 'generar');
+const verbo = computed(() => (generando.value ? 'Generar' : 'Solicitar'));
+
+function enviar(): void {
+    const ruta = generando.value ? 'generar-factura' : 'solicitar-factura';
+    form.post(`/finanzas/cuentas/${props.matriculaId}/${ruta}`, {
         preserveScroll: true,
         onSuccess: () => form.reset('pago_ids'),
     });
@@ -58,7 +67,7 @@ function solicitar(): void {
             No hay operaciones por facturar: tus pagos confirmados ya tienen factura, o todavía no hay pagos.
         </p>
 
-        <form v-else @submit.prevent="solicitar">
+        <form v-else @submit.prevent="enviar">
             <p class="mb-2 text-sm font-medium">¿Qué operaciones quieres facturar?</p>
             <div class="space-y-1">
                 <label
@@ -123,10 +132,11 @@ function solicitar(): void {
                     :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
                     :disabled="form.processing || !form.pago_ids.length"
                 >
-                    {{ form.processing ? 'Enviando…' : `Solicitar factura de ${pesos.format(total)}` }}
+                    {{ form.processing ? 'Enviando…' : `${verbo} factura de ${pesos.format(total)}` }}
                 </button>
                 <span class="text-xs" :style="{ color: 'var(--color-suave)' }">
-                    La escuela la revisa y la emite. No es un CFDI todavía.
+                    <template v-if="generando">Se emite tu CFDI al instante, a tu nombre.</template>
+                    <template v-else>La escuela la revisa y la emite. No es un CFDI todavía.</template>
                 </span>
             </div>
         </form>

@@ -172,6 +172,16 @@ class FinanzasController extends Controller
         $planes = $this->resolutor->planesDe($matricula);
         $plan = $planes->first();
 
+        // Autoservicio de factura: dos capacidades independientes de la escuela,
+        // cada una con su interruptor y su permiso de faceta. Generar (emite al
+        // momento) manda sobre solicitar cuando las dos están abiertas.
+        $ajustes = app(Ajustes::class);
+        $puedeGenerar = $ajustes->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_GENERAR)
+            && $request->user()->can('generar-mi-factura');
+        $puedeSolicitar = $ajustes->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_SOLICITUD)
+            && $request->user()->can('solicitar-factura');
+        $facturaModo = $puedeGenerar ? 'generar' : ($puedeSolicitar ? 'solicitar' : null);
+
         return Inertia::render('Finanzas/Cuenta', [
             'matricula' => [
                 'id' => $matricula->id,
@@ -286,9 +296,8 @@ class FinanzasController extends Controller
              * el personal factura por su bandeja). La LISTA de solicitudes se
              * enseña siempre: apagar el canal esconde el botón, no el historial.
              */
-            'puedeSolicitarFactura' => $puedeSolicitar = app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_SOLICITUD)
-                && $request->user()->can('solicitar-factura'),
-            'facturaAutoservicio' => $puedeSolicitar ? app(AutoservicioFactura::class)->datosParaSolicitar($matricula) : null,
+            'facturaModo' => $facturaModo,
+            'facturaAutoservicio' => $facturaModo !== null ? app(AutoservicioFactura::class)->datosParaSolicitar($matricula) : null,
             'solicitudesFactura' => app(AutoservicioFactura::class)->solicitudesDe($matricula),
         ]);
     }
