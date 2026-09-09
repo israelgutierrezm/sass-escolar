@@ -1895,11 +1895,49 @@ y van separadas porque comparten nombres de tabla (`cache`, `jobs`).
     analyze` limpio, 11 pruebas (con dobles sin red), `flutter build web` compila;
     la API por HTTP real (rebanada 1). Un extremo-a-extremo con la UI viva pide
     emulador/dispositivo, para cuando haya con qué.
-  - **Rebanada 3 (pendiente): datos y pantallas del alumno.** Resolver el rol
-    activo para la API (hoy `EstablecerRolActivo` es de la web) y exponer, gateado
-    por permiso, mis materias / historial / estado de cuenta / avisos, reusando
-    los servicios que ya existen (`HistorialDelAlumno`, `EstadoCuenta`…): una sola
-    verdad, no una segunda para la app. Y las pantallas del alumno en Flutter.
+  - **Rebanada 3 ✅ (2026-09-09): datos y pantallas del alumno.**
+    - **El rol activo se RESUELVE para la API.** Los `can:` (por `Gate::before`)
+      y el ámbito de `VeLaCarteraDelAlumno` resuelven contra `rol_activo_id`; en
+      la web lo mantiene `EstablecerRolActivo`, pero corre en el grupo `web`
+      sobre `Auth::user()` (sesión), no en la API (token/`sanctum`). El
+      middleware **`api.faceta:alumno`** (`App\Http\Middleware\Api\OperarComoFaceta`)
+      lo cierra: fija la faceta del PORTAL —no «el primer rol válido»: quien es
+      alumno Y administrativo vería en su estado de cuenta la cartera de toda la
+      escuela— **en MEMORIA, sin persistir** (no le toca a la web su rol activo).
+      Sin esa faceta, 403.
+    - **Una sola verdad, no una segunda para la app.** El listado/detalle de
+      materias salió de `MisCursosController` a `App\Services\Lms\CursosDelAlumno`
+      (lo comparten la web Inertia y la API JSON, con las listas de relaciones
+      single-source); historial y estado de cuenta reusan `HistorialDelAlumno` y
+      `EstadoCuenta`; avisos, `AvisosDeUsuario`. `AlumnoApiController` sólo
+      resuelve el ALCANCE (con `AlcanceDelAlumno`) y serializa.
+    - Endpoints (`auth:sanctum`): `/alumno/materias`, `/alumno/materias/{id}`
+      (403 con su motivo si no es suya), `/alumno/historial`,
+      `/alumno/estado-cuenta`, y —por PERSONA, fuera de la faceta— `/avisos` +
+      `/avisos/{aviso}/confirmar`. `?matricula=` se elige de entre las SUYAS: una
+      ajena cae en la propia (misma defensa que `/mi-historial`).
+    - **La API responde JSON, nunca Inertia**: guarda `/api/*` en el manejador de
+      excepciones de `bootstrap/app.php`, para que un 403/401 salga
+      `{"message": …}` y no la página HTML de error.
+    - **Trampa del orden de middleware del grupo API**: `SubstituteBindings` iba
+      ANTES de `InitializeTenancyByDomain`; con el binding de `{aviso}` habría
+      resuelto el modelo contra la base equivocada. Se reordenó: tenencia primero.
+    - Pruebas: `scripts/prueba-api-alumno.php`, 19 verificaciones, comprobadas
+      mutando **6 reglas** (el filtro de faceta, el `abort_if`, el no-persistir,
+      el alcance de la matrícula, el 404 de confirmar y el 403 de materia ajena;
+      todas mueren). El flujo entero por HTTP real (200/403/401). Sweep **159**
+      verdes, phpunit y `npm run build` verdes, auditoría del demo sin cambios
+      (69); los tokens de humo se borraron.
+    - **Flutter** (`acadion-app`): panel del alumno + cinco pantallas —materias,
+      materia (evaluación/asistencia/actividades), historial (selector de
+      matrícula), estado de cuenta y avisos (con confirmar)—, modelos tipados en
+      `core/modelos_alumno.dart`, datos por `FutureProvider` autoDispose, y los
+      errores del servidor mostrados con su motivo y un botón de reintentar.
+      `flutter analyze` limpio, **19 pruebas**, `flutter build web` compila.
+    - **Rebanada 4 (pendiente): familia y docente.** Cada público, su rebanada de
+      API (`api.faceta:padre` / `:docente`) + pantallas. El mecanismo ya
+      generaliza: `OperarComoFaceta` toma la faceta por parámetro, y `/avisos` ya
+      sirve a todos.
 
 - **Finanzas · COMPRAS y cuentas por pagar, rebanada 3 (ÓRDENES DE COMPRA) ·
   CIERRA EL MÓDULO** (2026-09-08). Un compromiso de compra que al recibirse genera

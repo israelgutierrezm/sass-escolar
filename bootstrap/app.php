@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\AvisoParaElUsuario;
+use App\Http\Middleware\Api\OperarComoFaceta;
 use App\Http\Middleware\EstablecerRolActivo;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ModuloEncendido;
@@ -24,6 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
             // Cierra las rutas de un módulo que la escuela tiene apagado. Es lo
             // que hace que apagar una sección no deje viva su dirección.
             'modulo' => ModuloEncendido::class,
+            // Fija la faceta con la que opera la app móvil (el rol activo de la
+            // API, que `EstablecerRolActivo` no resuelve porque es de la web).
+            'api.faceta' => OperarComoFaceta::class,
         ]);
 
         // Inertia comparte el contexto de sesión (usuario, rol activo, permisos)
@@ -59,6 +63,20 @@ return Application::configure(basePath: dirname(__DIR__))
          * al depurar.
          */
         $exceptions->respond(function (Response $respuesta, Throwable $excepcion, Request $peticion) {
+            /*
+             * La API móvil (`/api/*`) responde JSON, nunca la página Inertia.
+             *
+             * Laravel ya formatea como JSON lo que estas peticiones esperan
+             * —un `can:` que rebota da `{"message": ...}` con su 403—, así que
+             * basta con NO pisarlo abajo con `Inertia::render('Error')`, que
+             * devolvería HTML a un cliente que sólo entiende JSON. Se acota por
+             * ruta y no por `expectsJson()` para no tocar el comportamiento de
+             * ningún endpoint XHR de la web.
+             */
+            if ($peticion->is('api/*')) {
+                return $respuesta;
+            }
+
             $estado = $respuesta->getStatusCode();
 
             /*

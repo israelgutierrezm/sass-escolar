@@ -83,14 +83,48 @@ faceta (andamio; el portal del alumno llega en la 3).
   extremo con la UI viva pide emulador/dispositivo (y Developer Mode para los
   symlinks de plugins en Windows), que queda para cuando haya con qué.
 
-### Rebanada 3 — Alumno: datos y pantallas
+### Rebanada 3 — Alumno: datos y pantallas ✅ (2026-09-09)
 
-- **API**: resolver el ROL ACTIVO para la API (hoy `EstablecerRolActivo` es de la
-  web) y exponer, gateado por permiso, lo del alumno —mis materias, mi historial,
-  mi estado de cuenta, avisos—. Reusa los servicios que ya existen
-  (`HistorialDelAlumno`, `EstadoCuenta`, …): una sola verdad, no una segunda para
-  la app.
-- **Flutter**: panel del alumno + esas pantallas.
+**API** (repo `acadion`):
+
+- **El rol activo se RESUELVE para la API.** El `Gate::before` de los `can:` y el
+  ámbito de `VeLaCarteraDelAlumno` resuelven contra `rol_activo_id`, que en la
+  web mantiene al día `EstablecerRolActivo` —pero corre en el grupo `web` sobre
+  `Auth::user()` (sesión), no en la API (token/`sanctum`, grupo aparte)—. El
+  middleware **`api.faceta:alumno`** (`OperarComoFaceta`) lo cierra: fija la
+  faceta del PORTAL —no «el primer rol válido»: quien es alumno Y administrativo
+  vería la cartera de toda la escuela en su estado de cuenta— **en MEMORIA, sin
+  persistir** (no le cambia a la web su rol activo). Sin esa faceta, 403.
+- **Una sola verdad, no una segunda para la app.** El listado/detalle de
+  materias salió de `MisCursosController` a `App\Services\Lms\CursosDelAlumno`,
+  que ahora comparten la web (Inertia) y la API (JSON); historial y estado de
+  cuenta reusan `HistorialDelAlumno` y `EstadoCuenta`; avisos, `AvisosDeUsuario`.
+- Endpoints (bajo `auth:sanctum`): `GET /alumno/materias` (`can:ver-mis-cursos`),
+  `GET /alumno/materias/{id}` (403 con su motivo si no es suya),
+  `GET /alumno/historial` (`can:ver-historial-academico`),
+  `GET /alumno/estado-cuenta` (`can:ver-adeudos`), y —por PERSONA, fuera de la
+  faceta— `GET /avisos` + `POST /avisos/{aviso}/confirmar`. La matrícula
+  (`?matricula=`) se elige de entre las SUYAS: una ajena cae en la propia.
+- **La API responde JSON, nunca Inertia** (`/api/*` en el manejador de
+  excepciones), así que un 403/401 sale `{"message": …}`.
+- **Trampa del orden de middleware**: `SubstituteBindings` iba ANTES de la
+  tenencia; con el binding de `{aviso}` habría resuelto el modelo contra la base
+  equivocada. Se puso la tenencia primero.
+- Pruebas: `scripts/prueba-api-alumno.php` (19 verif, **6 mutaciones**, todas
+  mueren), y el flujo entero por HTTP real contra el servidor (materias/detalle/
+  historial/estado-cuenta/avisos → 200; materia ajena → 403; faceta ajena → 403;
+  sin token / revocado → 401). Sweep 159 verdes, `npm run build`, auditoría del
+  demo sin cambios (69); los tokens de humo se borraron.
+
+**Flutter** (repo `acadion-app`): panel del alumno + cinco pantallas —materias
+(por ciclo, con pendientes), materia (evaluación por parcial, asistencia,
+actividades), historial (selector de matrícula, resumen, renglones por periodo),
+estado de cuenta (saldo/vencido, situación, cargos) y avisos (con confirmar)—.
+Modelos tipados en `core/modelos_alumno.dart`; datos por `FutureProvider`
+autoDispose; los errores del servidor (un 403 de faceta, un token vencido) se
+muestran con su motivo y un botón de reintentar. Verificado: `flutter analyze`
+limpio, **19 pruebas** (providers, formato de pesos, y widgets del panel y de
+avisos con dobles sin red), `flutter build web` compila.
 
 ### Después — Familia y docente
 

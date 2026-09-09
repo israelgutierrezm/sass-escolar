@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\Api\AccesoApiController;
+use App\Http\Controllers\Api\AlumnoApiController;
+use App\Http\Controllers\Api\AvisosApiController;
 use App\Http\Controllers\ActividadAspiranteController;
 use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\AlumnoController;
@@ -3902,14 +3904,42 @@ Route::middleware([
 */
 Route::middleware([
     'throttle:120,1',
-    Illuminate\Routing\Middleware\SubstituteBindings::class,
+    // La tenencia se inicializa ANTES de resolver los bindings de ruta: sin
+    // esto, el route-model binding de `{aviso}` consultaría la base equivocada
+    // porque todavía no se ha cambiado la conexión a la de la escuela.
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
+    Illuminate\Routing\Middleware\SubstituteBindings::class,
 ])->prefix('api/v1')->name('tenant.api.')->group(function () {
     Route::post('acceso', [AccesoApiController::class, 'acceso'])->name('acceso');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('yo', [AccesoApiController::class, 'yo'])->name('yo');
         Route::post('salir', [AccesoApiController::class, 'salir'])->name('salir');
+
+        /*
+         * Avisos: por PERSONA, no por faceta —recibir un aviso no depende del
+         * rol activo—, así que van bajo `auth:sanctum` a secas y sirven a todos
+         * los públicos cuando lleguen sus portales.
+         */
+        Route::get('avisos', [AvisosApiController::class, 'index'])->name('avisos');
+        Route::post('avisos/{aviso}/confirmar', [AvisosApiController::class, 'confirmar'])
+            ->whereNumber('aviso')->name('avisos.confirmar');
+
+        /*
+         * Portal del ALUMNO. `api.faceta:alumno` fija el rol activo a la faceta
+         * alumno (ver OperarComoFaceta), y sobre él cada endpoint pide su `can:`
+         * —los mismos permisos que la web—.
+         */
+        Route::middleware('api.faceta:alumno')->prefix('alumno')->name('alumno.')->group(function () {
+            Route::get('materias', [AlumnoApiController::class, 'materias'])
+                ->middleware('can:ver-mis-cursos')->name('materias');
+            Route::get('materias/{asignaturaGrupo}', [AlumnoApiController::class, 'materia'])
+                ->whereNumber('asignaturaGrupo')->middleware('can:ver-mis-cursos')->name('materia');
+            Route::get('historial', [AlumnoApiController::class, 'historial'])
+                ->middleware('can:ver-historial-academico')->name('historial');
+            Route::get('estado-cuenta', [AlumnoApiController::class, 'estadoCuenta'])
+                ->middleware('can:ver-adeudos')->name('estado-cuenta');
+        });
     });
 });
