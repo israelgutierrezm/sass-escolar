@@ -6,6 +6,7 @@ use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\Api\AccesoApiController;
 use App\Http\Controllers\Api\AlumnoApiController;
+use App\Http\Controllers\Api\PadreApiController;
 use App\Http\Controllers\Api\AvisosApiController;
 use App\Http\Controllers\ActividadAspiranteController;
 use App\Http\Controllers\ActividadController;
@@ -3980,6 +3981,19 @@ Route::middleware([
                 ->middleware('can:ver-historial-academico')->name('historial');
             Route::get('estado-cuenta', [AlumnoApiController::class, 'estadoCuenta'])
                 ->middleware('can:ver-adeudos')->name('estado-cuenta');
+        });
+
+        /*
+         * Portal de la FAMILIA. `api.faceta:padre_familia` fija el rol activo a
+         * la faceta; qué hijo es suyo y qué le dejó ver la escuela lo decide el
+         * VÍNCULO dentro del controlador, no la URL. El permiso de ruta sólo
+         * abre la puerta del portal; lo fino lo gatea el vínculo.
+         */
+        Route::middleware('api.faceta:padre_familia')->prefix('familia')->name('familia.')->group(function () {
+            Route::get('hijos', [PadreApiController::class, 'hijos'])
+                ->middleware('can:ver-mis-hijos')->name('hijos');
+            Route::get('hijos/{hijo}', [PadreApiController::class, 'hijo'])
+                ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('hijo');
         });
     });
 });
