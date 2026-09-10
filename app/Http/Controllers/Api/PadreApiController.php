@@ -9,11 +9,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\Sancion;
+use App\Models\Identidad\Autorizacion;
 use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
+use App\Services\Familia\RespuestaAutorizacion;
 use App\Services\HistorialDelAlumno;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use Illuminate\Database\Eloquent\Collection;
@@ -53,6 +55,7 @@ class PadreApiController extends Controller
         private readonly EstadoDelAlumno $estadoDelAlumno,
         private readonly HistorialDelAlumno $historial,
         private readonly EstadoCuenta $estadoCuenta,
+        private readonly RespuestaAutorizacion $autorizaciones,
     ) {}
 
     /** Los hijos vinculados, con su estado según lo que la escuela le dejó ver. */
@@ -132,6 +135,43 @@ class PadreApiController extends Controller
                 ? $this->conductaDe($matriculas)
                 : null,
         ]);
+    }
+
+    /**
+     * Las autorizaciones que la escuela le pide a esta familia —lo que falta
+     * contestar primero—. Del mismo servicio que el portal web.
+     */
+    public function autorizaciones(Request $peticion): JsonResponse
+    {
+        return response()->json(['autorizaciones' => $this->autorizaciones->lista($peticion->user())]);
+    }
+
+    /**
+     * Concede o niega una autorización. La escritura y sus guardas viven en el
+     * servicio: un vínculo ajeno o una que ya no admite respuesta → 404.
+     */
+    public function responder(Request $peticion, Autorizacion $autorizacion): JsonResponse
+    {
+        $datos = $peticion->validate([
+            'concedida' => ['required', 'boolean'],
+            'comentario' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->autorizaciones->responder($autorizacion, $peticion->user(), $datos['concedida'], $datos['comentario'] ?? null);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Retira un consentimiento en vigor. Lo que no está en vigor → 404. */
+    public function revocar(Request $peticion, Autorizacion $autorizacion): JsonResponse
+    {
+        $datos = $peticion->validate([
+            'comentario' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $this->autorizaciones->revocar($autorizacion, $peticion->user(), $datos['comentario'] ?? null);
+
+        return response()->json(['ok' => true]);
     }
 
     /**

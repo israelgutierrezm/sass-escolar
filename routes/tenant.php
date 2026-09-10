@@ -3995,6 +3995,16 @@ Route::middleware([
                 ->middleware('can:ver-mis-hijos')->name('hijos');
             Route::get('hijos/{hijo}', [PadreApiController::class, 'hijo'])
                 ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('hijo');
+
+            // Autorizaciones: leer las que le tocan, responder (conceder/negar) y
+            // revocar lo concedido. Los guardas —de quién es, y en qué estado se
+            // puede tocar— viven en el controlador (vínculo ajeno → 404).
+            Route::get('autorizaciones', [PadreApiController::class, 'autorizaciones'])
+                ->middleware('can:ver-mis-hijos')->name('autorizaciones');
+            Route::put('autorizaciones/{autorizacion}', [PadreApiController::class, 'responder'])
+                ->whereNumber('autorizacion')->middleware('can:ver-mis-hijos')->name('autorizaciones.responder');
+            Route::post('autorizaciones/{autorizacion}/revocar', [PadreApiController::class, 'revocar'])
+                ->whereNumber('autorizacion')->middleware('can:ver-mis-hijos')->name('autorizaciones.revocar');
         });
 
         /*

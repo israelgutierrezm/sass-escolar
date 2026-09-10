@@ -22,6 +22,7 @@ use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
 use App\Services\Familia\RepresentacionDelTutor;
+use App\Services\Familia\RespuestaAutorizacion;
 use App\Services\Finanzas\AutoservicioFactura;
 use App\Services\HistorialDelAlumno;
 use App\Services\Pagos\Pasarelas;
@@ -95,7 +96,7 @@ class PadreController extends Controller
              * plazo: si vive en otra página, se contesta cuando alguien se
              * acuerda de entrar, y el día de la excursión faltan firmas.
              */
-            'autorizaciones' => AutorizacionController::deFamiliar($request->user()),
+            'autorizaciones' => app(RespuestaAutorizacion::class)->lista($request->user()),
         ]);
     }
 

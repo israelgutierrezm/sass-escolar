@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Identidad\Autorizacion;
-use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TipoAutorizacion;
 use App\Models\Identidad\TutorAlumno;
-use App\Models\Identidad\Usuario;
+use App\Services\Familia\RespuestaAutorizacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +38,8 @@ use Inertia\Response;
  */
 class AutorizacionController extends Controller
 {
+    public function __construct(private readonly RespuestaAutorizacion $respuesta) {}
+
     public function index(Request $peticion): Response
     {
         /*
@@ -173,31 +174,14 @@ class AutorizacionController extends Controller
      */
     public function responder(Request $peticion, Autorizacion $autorizacion): RedirectResponse
     {
-        /** @var Usuario $usuario */
-        $usuario = $peticion->user();
-
-        $esSuya = $usuario->persona_id !== null
-            && TutorAlumno::query()
-                ->whereKey($autorizacion->vinculo_familiar_id)
-                ->where('tutor_persona_id', $usuario->persona_id)
-                ->exists();
-
-        abort_unless($esSuya, 404);
-
-        // Vencida no se contesta ni se cambia: nadie des-autoriza la excursión
-        // el lunes siguiente.
-        abort_unless($autorizacion->admiteRespuesta(), 404);
-
         $datos = $peticion->validate([
             'concedida' => ['required', 'boolean'],
             'comentario' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $autorizacion->update([
-            'concedida' => $datos['concedida'],
-            'comentario' => $datos['comentario'] ?? null,
-            'fecha_respuesta' => now(),
-        ]);
+        // La escritura y sus guardas —de quién es, y si aún admite respuesta—
+        // viven en el servicio (una sola verdad con la app móvil).
+        $this->respuesta->responder($autorizacion, $peticion->user(), $datos['concedida'], $datos['comentario'] ?? null);
 
         return back(303)->with(
             'exito',
@@ -216,75 +200,13 @@ class AutorizacionController extends Controller
      */
     public function revocar(Request $peticion, Autorizacion $autorizacion): RedirectResponse
     {
-        /** @var Usuario $usuario */
-        $usuario = $peticion->user();
-
-        $esSuya = $usuario->persona_id !== null
-            && TutorAlumno::query()
-                ->whereKey($autorizacion->vinculo_familiar_id)
-                ->where('tutor_persona_id', $usuario->persona_id)
-                ->exists();
-
-        abort_unless($esSuya, 404);
-
-        abort_unless($autorizacion->puedeRevocar(), 404);
-
         $datos = $peticion->validate([
             'comentario' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $autorizacion->update([
-            'revocada_en' => now(),
-            'comentario' => $datos['comentario'] ?? $autorizacion->comentario,
-        ]);
+        $this->respuesta->revocar($autorizacion, $peticion->user(), $datos['comentario'] ?? null);
 
         return back(303)->with('exito', 'Autorización revocada: ya no está en vigor.');
     }
 
-    /**
-     * Las que le tocan a este familiar, para su portal.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public static function deFamiliar(Usuario $usuario): array
-    {
-        if ($usuario->persona_id === null) {
-            return [];
-        }
-
-        return Autorizacion::query()
-            ->whereIn(
-                'vinculo_familiar_id',
-                TutorAlumno::query()->where('tutor_persona_id', $usuario->persona_id)->select('id'),
-            )
-            ->with(['tipo:id,nombre', 'vinculo.alumno:id,nombre,primer_apellido,segundo_apellido'])
-            // Lo que falta contestar primero; después lo ya resuelto, lo más
-            // reciente arriba.
-            ->orderByRaw('concedida IS NOT NULL')
-            ->orderByDesc('id')
-            ->get()
-            ->map(fn (Autorizacion $a) => [
-                'id' => $a->id,
-                'titulo' => $a->titulo,
-                'detalle' => $a->detalle,
-                'tipo' => $a->tipo?->nombre,
-                'alumno' => $a->vinculo?->alumno?->nombreCompleto(),
-                'parentesco' => Parentesco::nombreDe($a->vinculo?->parentesco_id),
-                'fecha_limite' => $a->fecha_limite?->toDateString(),
-                'vigencia_hasta' => $a->vigencia_hasta?->toDateString(),
-                'vencida' => $a->estaVencida(),
-                'concedida' => $a->concedida,
-                'estado' => $a->estado(),
-                'comentario' => $a->comentario,
-                'fecha_respuesta' => $a->fecha_respuesta?->toDateTimeString(),
-                'revocada_en' => $a->revocada_en?->toDateTimeString(),
-                // Responder (dar o cambiar la respuesta) mientras el plazo siga
-                // abierto y NO esté concedida: una concedida se RETIRA con
-                // revocar, no se «cambia a negada». Pendiente o negada sí se
-                // pueden mover antes del plazo.
-                'puede_responder' => $a->admiteRespuesta() && $a->concedida !== true,
-                'puede_revocar' => $a->puedeRevocar(),
-            ])
-            ->all();
-    }
 }
