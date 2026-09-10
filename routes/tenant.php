@@ -4015,6 +4015,17 @@ Route::middleware([
                 ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('documentos.subir');
             Route::delete('hijos/{hijo}/documentos/{documento}', [PadreApiController::class, 'eliminarDocumento'])
                 ->whereNumber(['hijo', 'documento'])->middleware('can:ver-mis-hijos')->name('documentos.eliminar');
+
+            // Autoservicio de factura: la familia SOLICITA (o GENERA, con su
+            // permiso y su canal aparte) el CFDI de los pagos del hijo, y descarga
+            // el emitido. De quién es la cuenta lo decide `VeLaCarteraDelAlumno`
+            // dentro del controlador; el canal cerrado por la escuela → 404.
+            Route::post('facturas/{matricula}/solicitar', [PadreApiController::class, 'solicitarFactura'])
+                ->whereNumber('matricula')->middleware('can:solicitar-factura')->name('facturas.solicitar');
+            Route::post('facturas/{matricula}/generar', [PadreApiController::class, 'generarFactura'])
+                ->whereNumber('matricula')->middleware('can:generar-mi-factura')->name('facturas.generar');
+            Route::get('facturas/solicitudes/{solicitud}/cfdi/{tipo}', [PadreApiController::class, 'descargarCfdi'])
+                ->whereNumber('solicitud')->name('facturas.cfdi');
         });
 
         /*

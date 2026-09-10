@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Configuracion\Ajustes;
+use App\Configuracion\CatalogoAjustes;
 use App\Exceptions\AvisoParaElUsuario;
+use App\Http\Controllers\Concerns\AcotaPorCampus;
+use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Http\Controllers\Controller;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\Sancion;
+use App\Models\Finanzas\Factura;
+use App\Models\Finanzas\SolicitudFactura;
 use App\Models\Identidad\Autorizacion;
 use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
@@ -19,11 +25,17 @@ use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
 use App\Services\Familia\EntregaDocumentos;
 use App\Services\Familia\RespuestaAutorizacion;
+use App\Services\Finanzas\AutoservicioFactura;
+use App\Services\GestorSolicitudFactura;
 use App\Services\HistorialDelAlumno;
 use App\Services\Plataforma\ModulosDeLaEscuela;
+use App\Support\CatalogosSat;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * El portal de la FAMILIA para la app móvil.
@@ -35,31 +47,42 @@ use Illuminate\Http\Request;
  * día que una regla cambie, la web y la app dicen lo mismo porque leen del
  * mismo sitio.
  *
- * ── Qué se sirve, y qué NO todavía ─────────────────────────────────────────
+ * ── Qué se sirve ───────────────────────────────────────────────────────────
  * El NÚCLEO de lectura, como hizo el portal del alumno: la lista de hijos con su
- * estado, y por cada hijo lo académico, lo financiero y la conducta. Los flujos
- * INTERACTIVOS del portal web —pagar en línea, solicitar factura, entregar
- * documentos, salida segura, citas— son rebanadas posteriores; aquí no viajan.
+ * estado, y por cada hijo lo académico, lo financiero y la conducta. Y los
+ * flujos INTERACTIVOS que ya se portaron —confirmar autorizaciones, entregar
+ * documentos y solicitar/generar factura—, cada uno sobre su servicio compartido
+ * con la web. Los que faltan (pagar en línea, salida segura, citas) llegan en
+ * rebanadas posteriores.
  *
  * ── El alcance lo pone el VÍNCULO, no la URL ───────────────────────────────
  * Qué hijo es suyo lo decide `tutores_alumno` (la misma puerta que la web): un
  * id de persona ajeno no está vinculado y responde 403. Y qué le dejó ver la
  * escuela —académico, financiero— sale del pivote del vínculo, no del permiso:
- * el permiso deja entrar al portal, el vínculo decide qué se enseña.
+ * el permiso deja entrar al portal, el vínculo decide qué se enseña. Para la
+ * cartera —y facturar es una operación de la cartera— la pregunta «¿de quién es
+ * esta cuenta?» la responde `VeLaCarteraDelAlumno`, el MISMO trait que la web,
+ * que ya sabe del padre por vínculo + `puede_ver_finanzas`.
  *
  * ── La faceta la fija `api.faceta:padre_familia` ───────────────────────────
- * De él depende que el `Gate::before` de `ver-conducta-hijo` y el ámbito de
- * `EstadoCuenta` resuelvan como FAMILIA. Sin ese middleware, un permiso de la
- * faceta no tendría rol activo contra el que comprobarse.
+ * De él depende que el `Gate::before` de `ver-conducta-hijo`, el ámbito de
+ * `EstadoCuenta` y el de `VeLaCarteraDelAlumno` resuelvan como FAMILIA. Sin ese
+ * middleware, un permiso de la faceta no tendría rol activo contra el que
+ * comprobarse.
  */
 class PadreApiController extends Controller
 {
+    use AcotaPorCampus;
+    use VeLaCarteraDelAlumno;
+
     public function __construct(
         private readonly EstadoDelAlumno $estadoDelAlumno,
         private readonly HistorialDelAlumno $historial,
         private readonly EstadoCuenta $estadoCuenta,
         private readonly RespuestaAutorizacion $autorizaciones,
         private readonly EntregaDocumentos $documentos,
+        private readonly AutoservicioFactura $autoservicioFactura,
+        private readonly GestorSolicitudFactura $gestorFactura,
     ) {}
 
     /** Los hijos vinculados, con su estado según lo que la escuela le dejó ver. */
@@ -105,6 +128,11 @@ class PadreApiController extends Controller
 
         AvisoParaElUsuario::si($vinculo === null, 403, 'Este alumno no está vinculado a tu cuenta.');
 
+        // El autoservicio de factura: el canal abierto por la escuela, el permiso
+        // de faceta y que este vínculo alcance lo financiero. Las tres, como en la
+        // web. Generar (emite al momento) manda sobre solicitar si ambos.
+        $facturaModo = $this->facturaModo($peticion, $vinculo);
+
         $matriculas = $hijo->matriculas()
             ->with([
                 'oferta.programaAcademico:id,nombre',
@@ -130,8 +158,11 @@ class PadreApiController extends Controller
                 ? $matriculas->map(fn (MatriculaOferta $m) => $this->academicoDe($m))->values()
                 : null,
             'finanzas' => $vinculo->puede_ver_finanzas
-                ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m))->values()
+                ? $matriculas->map(fn (MatriculaOferta $m) => $this->finanzasDe($m, $facturaModo !== null))->values()
                 : null,
+            // Qué botón de factura ofrecer: 'generar', 'solicitar' o null. Es del
+            // usuario, no de cada matrícula, así que va arriba —igual que la web—.
+            'factura_modo' => $facturaModo,
             // La conducta va con el permiso de faceta —no con el vínculo, que
             // distingue académico de financiero pero no disciplina— y sólo si el
             // módulo está encendido.
@@ -139,6 +170,33 @@ class PadreApiController extends Controller
                 ? $this->conductaDe($matriculas)
                 : null,
         ]);
+    }
+
+    /**
+     * El modo del autoservicio de factura para este vínculo: 'generar' si emite
+     * al momento, 'solicitar' si sólo pide, o null si aquí no aplica.
+     *
+     * Las tres capas de la web: el vínculo alcanza lo financiero, el permiso de
+     * faceta, y la escuela abrió ese canal. Generar manda si están los dos.
+     */
+    private function facturaModo(Request $peticion, TutorAlumno $vinculo): ?string
+    {
+        if (! $vinculo->puede_ver_finanzas) {
+            return null;
+        }
+
+        $ajustes = app(Ajustes::class);
+        $usuario = $peticion->user();
+
+        if ($usuario->can('generar-mi-factura') && $ajustes->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_GENERAR)) {
+            return 'generar';
+        }
+
+        if ($usuario->can('solicitar-factura') && $ajustes->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_SOLICITUD)) {
+            return 'solicitar';
+        }
+
+        return null;
     }
 
     /**
@@ -288,18 +346,142 @@ class PadreApiController extends Controller
     }
 
     /**
-     * Lo financiero de una matrícula, con la cuenta del servicio compartido.
+     * Lo financiero de una matrícula, con la cuenta del servicio compartido y el
+     * autoservicio de factura del MISMO servicio que la web.
+     *
+     * `factura_autoservicio` (qué se puede facturar, con qué perfil) sólo cuando
+     * el canal está abierto; las solicitudes y las facturas ya emitidas viajan
+     * siempre —el historial no se esconde—.
      *
      * @return array<string, mixed>
      */
-    private function finanzasDe(MatriculaOferta $m): array
+    private function finanzasDe(MatriculaOferta $m, bool $conAutoservicio = false): array
     {
+        $facturas = Factura::query()
+            ->where('matricula_oferta_id', $m->id)
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (Factura $f) => [
+                'uuid' => $f->uuid,
+                'total' => (float) $f->total,
+                'estatus' => $f->estatus,
+                'fecha' => $f->fecha_timbrado?->toDateString(),
+            ])->values();
+
         return [
             'matricula_id' => $m->id,
             'matricula' => $m->matricula,
             'programa_academico' => $m->oferta?->programaAcademico?->nombre,
             // El mismo servicio que la pantalla de finanzas y el expediente.
             'cuenta' => $this->estadoCuenta->para($m),
+            'facturas' => $facturas,
+            'factura_autoservicio' => $conAutoservicio ? $this->autoservicioFactura->datosParaSolicitar($m) : null,
+            'solicitudes_factura' => $this->autoservicioFactura->solicitudesDe($m),
+        ];
+    }
+
+    // ── Solicitar / generar / descargar factura ────────────────────────────
+
+    /**
+     * La familia PIDE factura de unos pagos del hijo (la emite la escuela).
+     *
+     * La regla de «de quién es esta cuenta» la responde `VeLaCarteraDelAlumno`
+     * —vínculo + `puede_ver_finanzas`, la misma que la web—; el canal cerrado por
+     * la escuela responde 404 (no 403), igual que solicitar-en-la-web. La regla
+     * de negocio y las guardas viven en `GestorSolicitudFactura`.
+     */
+    public function solicitarFactura(Request $peticion, MatriculaOferta $matricula): JsonResponse
+    {
+        $this->exigirQuePuedaVerLaCuenta($peticion, $matricula);
+
+        AvisoParaElUsuario::aMenosQue(
+            app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_SOLICITUD),
+            404,
+            'La solicitud de factura en línea no está disponible en esta escuela.',
+        );
+
+        $datos = $this->datosDelReceptor($peticion);
+        $this->gestorFactura->solicitar($matricula, $datos['pago_ids'], $datos['receptor'], $peticion->user());
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * La familia GENERA su factura al momento: nace el CFDI sin pasar por la
+     * bandeja. Capacidad y canal APARTE de solicitar (emitir a nombre de la
+     * escuela es más delicado). Mismo motor, mismas guardas.
+     */
+    public function generarFactura(Request $peticion, MatriculaOferta $matricula): JsonResponse
+    {
+        $this->exigirQuePuedaVerLaCuenta($peticion, $matricula);
+
+        AvisoParaElUsuario::aMenosQue(
+            app(Ajustes::class)->bool(CatalogoAjustes::FACTURA_AUTOSERVICIO_GENERAR),
+            404,
+            'Generar tu factura en línea no está disponible en esta escuela.',
+        );
+
+        $datos = $this->datosDelReceptor($peticion);
+        $this->gestorFactura->generarDirecto($matricula, $datos['pago_ids'], $datos['receptor'], $peticion->user());
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * El CFDI de una solicitud ya emitida, para quien puede ver esa cuenta.
+     *
+     * La misma acotación que el estado de cuenta: un padre alcanza el CFDI del
+     * hijo cuyo vínculo le deja lo financiero, y de nadie más. Sólo se descarga
+     * lo TIMBRADO —lo que la lista marca `descargable`—; lo demás → 404.
+     */
+    public function descargarCfdi(Request $peticion, SolicitudFactura $solicitud, string $tipo): StreamedResponse
+    {
+        abort_unless(in_array($tipo, ['xml', 'pdf'], true), 404);
+
+        $matricula = $solicitud->matriculaOferta;
+        abort_unless($matricula !== null, 404);
+
+        $this->exigirQuePuedaVerLaCuenta($peticion, $matricula);
+
+        $factura = $solicitud->factura;
+        abort_if($factura === null || ! $factura->estaVigente(), 404);
+
+        $ruta = $tipo === 'xml' ? $factura->xml_ruta : $factura->pdf_ruta;
+        abort_if($ruta === null || ! Storage::disk('local')->exists($ruta), 404);
+
+        return Storage::disk('local')->download($ruta, ($factura->uuid ?? 'factura-'.$factura->id).'.'.$tipo);
+    }
+
+    /**
+     * Valida y arma el receptor del autoservicio. Contra el catálogo del SAT,
+     * como la emisión y como la web: lo que se pide tiene que poder timbrarse
+     * tal cual. El correo es de ENTREGA, aparte de los datos fiscales.
+     *
+     * @return array{pago_ids: array<int, int>, receptor: array<string, string|null>}
+     */
+    private function datosDelReceptor(Request $peticion): array
+    {
+        $datos = $peticion->validate([
+            'pago_ids' => ['required', 'array', 'min:1'],
+            'pago_ids.*' => ['integer'],
+            'rfc' => ['required', 'string', 'min:12', 'max:13'],
+            'razon_social' => ['required', 'string', 'max:255'],
+            'uso_cfdi' => ['required', 'string', Rule::in(CatalogosSat::clavesUsosCfdi())],
+            'regimen_fiscal' => ['required', 'string', Rule::in(CatalogosSat::clavesRegimenes())],
+            'cp' => ['required', 'string', 'size:5'],
+            'correo' => ['nullable', 'email', 'max:190'],
+        ]);
+
+        return [
+            'pago_ids' => $datos['pago_ids'],
+            'receptor' => [
+                'rfc' => $datos['rfc'],
+                'razon_social' => $datos['razon_social'],
+                'uso_cfdi' => $datos['uso_cfdi'],
+                'regimen_fiscal' => $datos['regimen_fiscal'],
+                'cp' => $datos['cp'],
+                'correo' => $datos['correo'] ?? null,
+            ],
         ];
     }
 
