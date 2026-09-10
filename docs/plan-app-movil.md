@@ -156,12 +156,20 @@ El enrutado por faceta cae en el primer portal con contenido (alumno, luego
 familia, luego docente). El back office (administrativo, 727 rutas) NO es una app
 móvil.
 
-### Después — lo interactivo
+### Lo interactivo (flujos que ESCRIBEN)
 
-Lo que falta de cada portal son los flujos que ESCRIBEN: pagar en línea y
-solicitar factura (familia), pasar lista, capturar calificaciones y asentar el
-acta (docente), entregar documentos y confirmar autorizaciones (familia). Cada
-uno con su rebanada, sobre la API de escritura que corresponda.
+Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
+
+- **Pasar lista** (docente) ✅. La escritura vive en un servicio compartido
+  `App\Services\Asistencia\PaseDeLista` que usan la web y la API (una sola
+  verdad): sólo alumnos de la materia, y repasar el mismo día corrige sin
+  duplicar (revive la fila borrada). `GET/POST /api/v1/docente/materias/{ag}/asistencia`
+  bajo `can:pasar-lista`. Flutter: `PantallaAsistencia` (fecha, modalidad, marcar
+  y guardar). Pruebas: `prueba-pase-de-lista.php` (12) + HTTP real + 3 Flutter.
+
+Lo que sigue: capturar calificaciones y asentar acta (docente); pagar en línea,
+solicitar factura, entregar documentos y confirmar autorizaciones (familia).
+Cada uno con su rebanada, sobre la API de escritura que corresponda.
 
 ## Reglas transversales
 
