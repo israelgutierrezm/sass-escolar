@@ -126,11 +126,42 @@ muestran con su motivo y un botón de reintentar. Verificado: `flutter analyze`
 limpio, **19 pruebas** (providers, formato de pesos, y widgets del panel y de
 avisos con dobles sin red), `flutter build web` compila.
 
-### Después — Familia y docente
+### Rebanada 4 ✅ — Familia y docente
 
-Cada público, su rebanada de API + pantallas. El back office (administrativo, 727
-rutas) NO es una app móvil; lo que sí lo es —alumno, familia, docente— ya está
-construido y revisado del lado web.
+Cada público, su rebanada de API + pantallas, con el mismo patrón del alumno.
+
+**Familia** (`api.faceta:padre_familia`). `PadreApiController`: la lista de hijos
+con su estado (`GET /api/v1/familia/hijos`) y el detalle de cada hijo —académico,
+finanzas y conducta— (`GET /api/v1/familia/hijos/{hijo}`). Una sola verdad: el
+estado sale de `EstadoDelAlumno`, el promedio y los renglones de
+`HistorialDelAlumno`, y el saldo de `EstadoCuenta`. El alcance lo pone el VÍNCULO
+(`tutores_alumno`), no la URL: un hijo no vinculado → 403; qué se enseña
+—académico y financiero por separado— sale del pivote del vínculo, la conducta
+del permiso de faceta y el módulo. Flutter: `PanelFamilia` (hijos con su estado)
+y `PantallaHijo` (secciones según el vínculo), reusando `RenglonHistorial` y
+`CuentaData` del alumno. Pruebas: `prueba-api-familia.php` (15) + HTTP real +
+8 pruebas Flutter.
+
+**Docente** (`api.faceta:docente`). `DocenteApiController`: las materias que
+imparte (`GET /api/v1/docente/materias`, con grupo, horario, inscritos y acta) y
+el roster de una materia propia (`GET /api/v1/docente/materias/{ag}`, con sus
+alumnos y compañeros). El alcance sale de la ASIGNACIÓN —filtro por
+`docentes.persona_id`, la trampa documentada—: una materia ajena → 403. Flutter:
+`PanelDocente` (materias) y `PantallaMateriaDocente` (roster). Los flujos de
+captura —pasar lista, calificar, asentar acta— son rebanadas posteriores; aquí
+sólo lectura. Pruebas: `prueba-api-docente.php` (11) + HTTP real + 6 pruebas
+Flutter.
+
+El enrutado por faceta cae en el primer portal con contenido (alumno, luego
+familia, luego docente). El back office (administrativo, 727 rutas) NO es una app
+móvil.
+
+### Después — lo interactivo
+
+Lo que falta de cada portal son los flujos que ESCRIBEN: pagar en línea y
+solicitar factura (familia), pasar lista, capturar calificaciones y asentar el
+acta (docente), entregar documentos y confirmar autorizaciones (familia). Cada
+uno con su rebanada, sobre la API de escritura que corresponda.
 
 ## Reglas transversales
 
