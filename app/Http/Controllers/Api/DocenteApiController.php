@@ -8,8 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
+use App\Services\Asistencia\PaseDeLista;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
@@ -32,6 +34,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class DocenteApiController extends Controller
 {
+    public function __construct(private readonly PaseDeLista $pase) {}
+
     /** Las materias que imparte, con su grupo, horario y cuántos alumnos. */
     public function materias(Request $peticion): JsonResponse
     {
@@ -120,6 +124,61 @@ class DocenteApiController extends Controller
                 ->all(),
             'alumnos' => $alumnos,
         ]);
+    }
+
+    /**
+     * La hoja para pasar lista: los alumnos con lo ya marcado ese día.
+     *
+     * `?fecha=YYYY-MM-DD` (por omisión hoy) y `?modalidad=` eligen la sesión;
+     * `modalidades` dice cuáles ofrece la materia (una sola, o teoría y práctica
+     * si pasa lista dos veces), y `estatus` los valores que acepta.
+     */
+    public function asistencia(Request $peticion, AsignaturaGrupo $asignaturaGrupo): JsonResponse
+    {
+        $this->autorizarMateria($peticion, $asignaturaGrupo);
+
+        $fecha = (string) ($peticion->query('fecha') ?: now()->format('Y-m-d'));
+        $modalidad = (string) ($peticion->query('modalidad')
+            ?: ($asignaturaGrupo->doble_pase_lista ? 'teorica' : 'unica'));
+
+        return response()->json([
+            'fecha' => $fecha,
+            'modalidad' => $modalidad,
+            'modalidades' => $asignaturaGrupo->doble_pase_lista ? ['teorica', 'practica'] : ['unica'],
+            'estatus' => PaseDeLista::ESTATUS,
+            'alumnos' => $this->pase->hoja($asignaturaGrupo, $fecha, $modalidad),
+        ]);
+    }
+
+    /**
+     * Guarda la lista de una sesión. La misma escritura que la web —el servicio
+     * compartido—: sólo alumnos de esta materia, y repasar el mismo día corrige
+     * sin duplicar.
+     */
+    public function guardarAsistencia(Request $peticion, AsignaturaGrupo $asignaturaGrupo): JsonResponse
+    {
+        $personaId = $this->autorizarMateria($peticion, $asignaturaGrupo);
+
+        $datos = $peticion->validate([
+            'fecha' => ['required', 'date', 'before_or_equal:today'],
+            'modalidad' => ['required', Rule::in(PaseDeLista::MODALIDADES)],
+            'asistencias' => ['required', 'array', 'min:1'],
+            'asistencias.*.inscripcion_id' => ['required', 'integer'],
+            'asistencias.*.estatus' => ['required', Rule::in(PaseDeLista::ESTATUS)],
+            'asistencias.*.observacion' => ['nullable', 'string', 'max:300'],
+        ], [
+            'fecha.before_or_equal' => 'No se puede pasar lista de una clase que todavía no ocurre.',
+        ]);
+
+        $guardadas = $this->pase->guardar(
+            $asignaturaGrupo,
+            $datos['fecha'],
+            $datos['modalidad'],
+            $datos['asistencias'],
+            $personaId,
+        );
+
+        return response()->json(['guardadas' => $guardadas]);
     }
 
     /**

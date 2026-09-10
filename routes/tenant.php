@@ -4007,6 +4007,14 @@ Route::middleware([
                 ->middleware('can:ver-mis-materias')->name('materias');
             Route::get('materias/{asignaturaGrupo}', [DocenteApiController::class, 'materia'])
                 ->whereNumber('asignaturaGrupo')->middleware('can:ver-mis-materias')->name('materia');
+
+            // Pasar lista: leer la hoja de una sesión y guardarla. Permiso propio
+            // (`pasar-lista`), el mismo que la web; el alcance por asignación lo
+            // vuelve a exigir el controlador.
+            Route::get('materias/{asignaturaGrupo}/asistencia', [DocenteApiController::class, 'asistencia'])
+                ->whereNumber('asignaturaGrupo')->middleware('can:pasar-lista')->name('asistencia');
+            Route::post('materias/{asignaturaGrupo}/asistencia', [DocenteApiController::class, 'guardarAsistencia'])
+                ->whereNumber('asignaturaGrupo')->middleware('can:pasar-lista')->name('asistencia.guardar');
         });
     });
 });

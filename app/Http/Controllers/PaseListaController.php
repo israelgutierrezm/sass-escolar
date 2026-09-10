@@ -9,9 +9,9 @@ use App\Models\Asistencia\AsistenciaClase;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
+use App\Services\Asistencia\PaseDeLista;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -29,20 +29,7 @@ class PaseListaController extends Controller
 {
     use AutorizaMateriaPropia;
 
-    /**
-     * Los estados posibles de una asistencia.
-     *
-     * Salen de las constantes del MODELO y no de una lista escrita aquí: eran
-     * dos declaraciones de lo mismo y ya habían divergido —el modelo decía
-     * `'ausente'` donde esto escribe `'falta'`, y su `scopeFaltas()` no
-     * encontraba nada—. Con una sola declaración no puede repetirse.
-     */
-    private const ESTATUS = [
-        AsistenciaClase::PRESENTE,
-        AsistenciaClase::RETARDO,
-        AsistenciaClase::FALTA,
-        AsistenciaClase::JUSTIFICADA,
-    ];
+    public function __construct(private readonly PaseDeLista $pase) {}
 
     public function guardar(Request $request, AsignaturaGrupo $asignaturaGrupo): RedirectResponse
     {
@@ -50,62 +37,28 @@ class PaseListaController extends Controller
 
         $datos = $request->validate([
             'fecha' => ['required', 'date', 'before_or_equal:today'],
-            'modalidad' => ['required', Rule::in(['unica', 'teorica', 'practica'])],
+            'modalidad' => ['required', Rule::in(PaseDeLista::MODALIDADES)],
             'asistencias' => ['required', 'array', 'min:1'],
             'asistencias.*.inscripcion_id' => ['required', 'integer'],
-            'asistencias.*.estatus' => ['required', Rule::in(self::ESTATUS)],
+            'asistencias.*.estatus' => ['required', Rule::in(PaseDeLista::ESTATUS)],
             'asistencias.*.observacion' => ['nullable', 'string', 'max:300'],
         ], [
             'fecha.before_or_equal' => 'No se puede pasar lista de una clase que todavía no ocurre.',
         ], ['asistencias' => 'lista']);
 
-        // Solo se registran alumnos de ESTA materia. Un id ajeno en el arreglo
-        // no debe crear un renglón de asistencia en un grupo que no es suyo.
-        $suyas = Inscripcion::query()
-            ->where('asignatura_grupo_id', $asignaturaGrupo->id)
-            ->pluck('id')
-            ->flip();
-
         /** @var Usuario $usuario */
         $usuario = $request->user();
-        $guardadas = 0;
 
-        DB::transaction(function () use ($datos, $suyas, $usuario, &$guardadas) {
-            foreach ($datos['asistencias'] as $fila) {
-                if (! $suyas->has((int) $fila['inscripcion_id'])) {
-                    continue;
-                }
-
-                /*
-                 * Repasar lista del mismo día CORRIGE el registro, no lo
-                 * duplica: el unique es (inscripción, fecha, modalidad).
-                 *
-                 * Se busca CON las borradas y se revive la que aparezca. El
-                 * `updateOrCreate` normal no ve las que tienen `deleted_at`
-                 * —el scope global las esconde—, así que intentaba insertar
-                 * encima de una fila que el unique de la base sí ve, y la
-                 * lista entera moría con un 1062. Le pasa a cualquiera que
-                 * borre una asistencia y vuelva a pasar lista ese día.
-                 */
-                AsistenciaClase::actualizarOReviver(
-                    [
-                        'inscripcion_id' => $fila['inscripcion_id'],
-                        'fecha' => $datos['fecha'],
-                        'modalidad' => $datos['modalidad'],
-                    ],
-                    [
-                        'estatus' => $fila['estatus'],
-                        'observacion' => $fila['observacion'] ?? null,
-                        // La llave foránea apunta a `personas`, no a `usuarios`:
-                        // quien pasa lista es el docente como PERSONA, que es lo
-                        // que sigue teniendo sentido si su cuenta desaparece.
-                        'registrada_por' => $usuario->persona_id,
-                    ],
-                );
-
-                $guardadas++;
-            }
-        });
+        // La escritura vive en el servicio (una sola verdad con la app móvil):
+        // sólo alumnos de esta materia, y repasar el mismo día corrige sin
+        // duplicar reviviendo la fila borrada.
+        $guardadas = $this->pase->guardar(
+            $asignaturaGrupo,
+            $datos['fecha'],
+            $datos['modalidad'],
+            $datos['asistencias'],
+            $usuario->persona_id,
+        );
 
         $cual = $datos['modalidad'] === 'unica' ? '' : " ({$datos['modalidad']})";
 
