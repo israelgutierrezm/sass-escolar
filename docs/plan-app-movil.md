@@ -178,9 +178,17 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   irreversible que se queda en la web. Pruebas:
   `prueba-captura-calificaciones.php` (13) + HTTP real + 2 Flutter.
 
-Lo que sigue: pagar en línea, solicitar factura, entregar documentos y confirmar
-autorizaciones (familia). Cada uno con su rebanada, sobre la API de escritura
-que corresponda.
+- **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
+  salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
+  (la web delega en él): listar, conceder/negar (mientras el plazo siga abierto)
+  y revocar lo en vigor. Los guardas responden 404 —vínculo ajeno o estado que
+  no admite el acto—. `GET/PUT/POST /api/v1/familia/autorizaciones[...]` bajo
+  `can:ver-mis-hijos`. Flutter: `PantallaAutorizaciones` (con insignia de
+  pendientes en el panel). Pruebas: `prueba-api-autorizaciones-familia.php` (9) +
+  HTTP real + 3 Flutter.
+
+Lo que sigue: entregar documentos, solicitar factura y pagar en línea (familia).
+Cada uno con su rebanada, sobre la API de escritura que corresponda.
 
 ## Reglas transversales
 
