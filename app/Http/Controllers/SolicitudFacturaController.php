@@ -153,7 +153,7 @@ class SolicitudFacturaController extends Controller
         }
 
         $factura = $solicitud->factura;
-        abort_if($factura === null || ! $factura->estaTimbrada(), 404);
+        abort_if($factura === null || ! $factura->estaVigente(), 404);
 
         $ruta = $tipo === 'xml' ? $factura->xml_ruta : $factura->pdf_ruta;
         abort_if($ruta === null || ! Storage::disk('local')->exists($ruta), 404);
