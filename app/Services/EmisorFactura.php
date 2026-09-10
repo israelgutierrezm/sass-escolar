@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Jobs\TimbrarFactura;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\ConceptoPago;
+use App\Models\Finanzas\DatosFacturacion;
 use App\Models\Finanzas\EmisorFiscal;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
@@ -280,6 +281,12 @@ class EmisorFactura
             ->cobrados()
             ->whereBetween('momento', [$desde.' 00:00:00', $hasta.' 23:59:59'])
             ->whereNotIn('id', $ocupados)
+            // Público en general = quien NO pidió factura nominativa. Quien la
+            // pidió queda fuera de la global: o ya se le emitió, o le faltan
+            // datos y está pendiente —no se le mete en la global en silencio—.
+            ->whereNotIn('matricula_oferta_id', MatriculaOferta::query()
+                ->whereIn('persona_id', DatosFacturacion::query()->where('quiere_factura', true)->select('persona_id'))
+                ->select('id'))
             ->orderBy('momento')
             ->get()
             ->filter(function (Pago $p) use ($emisor, &$emisorDe) {

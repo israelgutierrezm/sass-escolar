@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Events\PagoConfirmado;
 use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
@@ -136,6 +137,15 @@ class RegistradorPago
                 $this->actualizarEstatus($adeudo);
             }
         });
+
+        /*
+         * «Pago confirmado» es una sola señal para todos los canales —ventanilla,
+         * pasarela, comprobante—: todos pasan por aquí. Se avisa DESPUÉS del
+         * commit, con el cobro ya firme, para que quien escuche (la facturación
+         * automática) actúe sobre dinero que de verdad entró y una falla suya no
+         * pueda deshacer la confirmación.
+         */
+        PagoConfirmado::dispatch($pago);
     }
 
     /**

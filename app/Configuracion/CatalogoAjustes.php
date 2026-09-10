@@ -82,6 +82,8 @@ final class CatalogoAjustes
 
     public const FACTURA_PERIODICIDAD_GLOBAL = 'facturacion.periodicidad_global';
 
+    public const FACTURA_AUTOMATICA = 'facturacion.automatico';
+
     // Admisiones.
     public const EXIGE_DOCUMENTOS = 'aspirante.exige_documentos_para_convertir';
 
@@ -421,6 +423,26 @@ final class CatalogoAjustes
                 tipo: Ajuste::SELECCION,
                 porDefecto: '04',
                 opciones: ['01' => 'Diario', '02' => 'Semanal', '03' => 'Quincenal', '04' => 'Mensual', '05' => 'Bimestral'],
+            ),
+
+            new Ajuste(
+                clave: self::FACTURA_AUTOMATICA,
+                grupo: 'Finanzas',
+                etiqueta: 'Facturar automáticamente al confirmar el pago',
+                descripcion: 'Encendido, en cuanto un pago queda CONFIRMADO —por cualquier vía— se emite su CFDI '
+                    .'sin que nadie lo pida: nominativo si el alumno tiene sus datos fiscales capturados y pidió '
+                    .'factura; si no, el pago queda para la factura GLOBAL del periodo. Sólo sobre pagos '
+                    .'confirmados, nunca sobre intentos ni comprobantes sin revisar. No refactura lo histórico.',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Apagado por omisión: enciende el acto fiscal en cada cobro, y
+                 * hacerlo sin el PAC conectado y los perfiles al día llenaría la
+                 * cola de timbrados que fallan. Se enciende cuando la facturación
+                 * ya opera. R06.14: no toca los pagos históricos, sólo los nuevos.
+                 */
+                porDefecto: false,
+                consecuencia: 'Un pago cuyo CFDI no se pueda emitir queda CONFIRMADO y pendiente de facturar, con '
+                    .'aviso en el panel; nunca se marca facturado sin estarlo. Apagarlo no toca lo ya emitido.',
             ),
 
             new Ajuste(

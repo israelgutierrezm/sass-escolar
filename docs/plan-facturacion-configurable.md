@@ -146,13 +146,37 @@ R06.15 (bandeja) + R06.16 (mensajes/descarga).
   portal, «generar» manda sobre «solicitar» cuando la escuela abre las dos
   (`facturaModo`). Cancelación y sustitución siguen sin concederse al alumno.
 
-### Rebanada 4 — Facturación automática al confirmar pago
+### Rebanada 4 — Facturación automática al confirmar pago ✅ (2026-09-09)
 
-Evento `PagoConfirmado` → resuelve la política efectiva (nominativo si hay perfil
-y `quiere_factura`; respaldo público-general si está configurado; si no,
-CONFIRMADO + proceso fiscal PENDIENTE + alerta, nunca «facturado» sin estarlo),
-con interruptor por escuela y un **resumen del comportamiento resultante** antes
-de guardar. **R06-A** auto + R06.03/R06.04/R06.09/R06.14. Depende de 1–2.
+Con esto R06 queda entregado. Interruptor `facturacion.automatico` (apagado por
+omisión). **R06-A** auto + R06.08/R06.09/R06.14.
+
+- **Un evento, una señal para todos los canales** (R06.09): `App\Events\PagoConfirmado`
+  se dispara en `RegistradorPago::confirmar` —el único punto por el que un cobro se
+  confirma, venga de ventanilla, pasarela o comprobante—, y DESPUÉS del commit, con
+  el cobro ya firme. El oyente `FacturarPagoConfirmado` (auto-descubierto) delega en
+  `App\Services\Finanzas\FacturacionAutomatica`.
+- **La política**: con el automático encendido, un pago de matrícula recién
+  confirmado se factura NOMINATIVO si el alumno tiene su perfil fiscal completo y
+  pidió factura; si no, no se emite nada y el pago queda para la factura GLOBAL del
+  periodo (ausencia no es invalidez, R06.08). `globalizables` EXCLUYE a quien pidió
+  nominativa: su pago no se cuela a la global —o ya se le emitió, o le faltan datos
+  y queda pendiente—.
+- **Nunca tumba el cobro** (R06.09): el pago ya está confirmado cuando corre; una
+  falla al facturar se registra y el pago queda pendiente (lo muestra la tarjeta
+  `FacturacionPendiente`), sin propagar la excepción ni marcarlo facturado.
+- **No refactura lo histórico** (R06.14): sólo actúa sobre confirmaciones nuevas;
+  encender el automático no toca los pagos ya cobrados.
+- Pruebas: `scripts/prueba-facturacion-automatica.php` (9 verif, integración real
+  evento→oyente→política→motor→timbrado; el gate y la exclusión de la global por
+  mutación). `prueba-facturacion`/`cobro`/`carreras-de-concurrencia` y phpunit del
+  cobro sin regresión (el evento es no-op con el automático apagado).
+
+**Queda como afinación** (no bloquea el cierre de R06): el **resumen combinado**
+del comportamiento para alumno/padre antes de guardar (hoy cada interruptor trae su
+`consecuencia`, R06.03 parcial) y **mostrar el receptor en el checkout** del pago en
+línea (R06.04). La periodicidad como corte real (quincenal = 15 días) sigue anotada
+en la rebanada 2.
 
 ## Reglas transversales (del pedido, y que el proyecto ya sostiene)
 
