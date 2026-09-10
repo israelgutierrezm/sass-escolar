@@ -29,11 +29,15 @@ use App\Models\Finanzas\ConceptoPago;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
 use App\Models\Identidad\Persona;
+use App\Models\Identidad\Rol;
+use App\Models\Identidad\Usuario;
 use App\Models\Tenant;
 use App\Services\MatriculadorOferta;
 use App\Services\RegistradorPago;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 $raiz = dirname(__DIR__);
 
@@ -179,10 +183,32 @@ try {
     verificar('Una transferencia nace pendiente', ! $pendiente->estaCobrado(), $pendiente->estatus);
 
     $controlador = app(App\Http\Controllers\FinanzasController::class);
+
+    // El recibo se acota (personal / dueño de la cuenta): se le pasa una petición
+    // con un usuario que cobra, para el que la salvaguarda se salta.
+    $cobra = Persona::create(['nombre' => 'Caja', 'primer_apellido' => 'Prueba', 'sexo_id' => 1]);
+    $usuarioCaja = Usuario::create([
+        'persona_id' => $cobra->id,
+        'usuario' => 'prueba_recibo_'.random_int(100000, 999999),
+        'email' => 'prueba_recibo_'.random_int(100000, 999999).'@ejemplo.mx',
+        'password' => Hash::make('secreto12345'),
+        'rol_activo_id' => Rol::where('name', 'director_general')->firstOrFail()->id,
+    ]);
+    $cobra->asignacionesRol()->create(['rol_id' => $usuarioCaja->rol_activo_id, 'activo' => true]);
+    auth()->login($usuarioCaja->fresh(['rolActivo']));
+
+    $peticionRecibo = static function () use ($usuarioCaja): Request {
+        $r = Request::create('/', 'GET');
+        $r->setUserResolver(fn () => $usuarioCaja);
+        app()->instance('request', $r);
+
+        return $r;
+    };
+
     $codigo = null;
 
     try {
-        $controlador->recibo($pendiente, $recibo);
+        $controlador->recibo($peticionRecibo(), $pendiente, $recibo);
     } catch (Symfony\Component\HttpKernel\Exception\HttpException $e) {
         $codigo = $e->getStatusCode();
     }
@@ -191,7 +217,7 @@ try {
 
     // Confirmada, ya es dinero y sí se imprime.
     $registrador->confirmar($pendiente->fresh());
-    $respuesta = $controlador->recibo($pendiente->fresh(), $recibo);
+    $respuesta = $controlador->recibo($peticionRecibo(), $pendiente->fresh(), $recibo);
 
     verificar('Confirmada, el recibo sí sale', $respuesta->getStatusCode() === 200);
     verificar('Y va como PDF', str_contains((string) $respuesta->headers->get('Content-Type'), 'application/pdf'));
