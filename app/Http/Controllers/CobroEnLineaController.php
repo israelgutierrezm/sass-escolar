@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Pagar en línea: los cuatro saltos del cobro.
@@ -89,6 +90,18 @@ class CobroEnLineaController extends Controller
                 $datos['metodo'] ?? null,
                 isset($datos['importe']) ? (float) $datos['importe'] : null,
             );
+        } catch (HttpException $e) {
+            /*
+             * Un aviso para quien paga —falta elegir el método, no marcó cargos,
+             * la escuela apagó «pagar todo», la pasarela no está activada— ya
+             * trae SU mensaje y SU código. Se deja pasar tal cual; el manejador
+             * de Laravel lo devuelve como JSON. `AvisoParaElUsuario` desciende de
+             * `HttpException` y ésta de `RuntimeException`, así que sin esta rama
+             * caería en la de abajo y se le echaría la culpa a la pasarela: el
+             * alumno leería «avísale a la escuela» cuando lo único que pasa es
+             * que tiene que elegir menos cargos.
+             */
+            throw $e;
         } catch (RuntimeException $e) {
             /*
              * Lo que falló es de la escuela, no de quien paga: credenciales

@@ -23,6 +23,7 @@
 
 use App\Configuracion\Ajustes;
 use App\Configuracion\CatalogoAjustes;
+use App\Http\Controllers\CobroEnLineaController;
 use App\Http\Controllers\FinanzasController;
 use App\Models\Academico\Oferta;
 use App\Models\Finanzas\Adeudo;
@@ -197,6 +198,47 @@ try {
 
     $ajustes->guardar([CatalogoAjustes::PAGO_TOTAL => false]);
     verificar('Apagado, llega en false', ($propsDeCuenta()['pagoTotal'] ?? null) === false);
+
+    echo PHP_EOL.'9. Por el ENDPOINT real, el mensaje llega tal cual'.PHP_EOL;
+
+    /*
+     * El servicio lanza un AvisoParaElUsuario, que desciende de HttpException y
+     * ésta de RuntimeException. El controlador atrapa RuntimeException para
+     * culpar a la pasarela de SUS fallos, así que sin cuidado se tragaría este
+     * aviso y el alumno leería «avísale a la escuela» en vez de «elige menos
+     * cargos». Esto recorre el controlador y renderiza como el kernel HTTP.
+     */
+    $ctrl = app(CobroEnLineaController::class);
+    $handler = app(Illuminate\Contracts\Debug\ExceptionHandler::class);
+
+    $porEndpoint = static function (array $ids) use ($ctrl, $handler, $usuario, $matricula): array {
+        $r = Request::create('/', 'POST', ['pasarela' => 'stripe', 'adeudo_ids' => $ids]);
+        $r->headers->set('Accept', 'application/json');
+        $r->setUserResolver(fn () => $usuario);
+        app()->instance('request', $r);
+
+        try {
+            $resp = $ctrl->iniciar($r, $matricula->fresh());
+        } catch (Throwable $e) {
+            $resp = $handler->render($r, $e); // lo que hace el kernel HTTP
+        }
+
+        return [$resp->getStatusCode(), (string) $resp->getContent()];
+    };
+
+    $ajustes->guardar([CatalogoAjustes::PAGO_TOTAL => false]);
+
+    [$cod, $cuerpo] = $porEndpoint([$marzo->id, $abril->id]);
+    verificar('Cubrir todos responde 422 por el endpoint', $cod === 422, (string) $cod);
+    // El cuerpo es JSON con el unicode escapado (`qué`), así que se buscan
+    // subcadenas sin acentos: la regla de «pagar todos» y la ausencia del
+    // mensaje genérico de la pasarela.
+    verificar('Y con el mensaje de elegir cargos, no el de la pasarela',
+        str_contains($cuerpo, 'pagar todos en un solo movimiento')
+        && ! str_contains($cuerpo, 'No se pudo abrir el pago'));
+
+    [$codUno, $cuerpoUno] = $porEndpoint([$marzo->id]);
+    verificar('Un subconjunto responde 200 con liga', $codUno === 200 && str_contains($cuerpoUno, 'url'));
 
     echo PHP_EOL.'Resultado: '.$ok.' correctas, '.count($fallos).' fallidas'.PHP_EOL;
 } catch (Throwable $e) {
