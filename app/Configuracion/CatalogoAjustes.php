@@ -76,6 +76,8 @@ final class CatalogoAjustes
     // Finanzas.
     public const ABONO_MINIMO = 'finanzas.abono_minimo';
 
+    public const PAGO_TOTAL = 'finanzas.pago_total';
+
     public const FACTURA_AUTOSERVICIO_SOLICITUD = 'facturacion.autoservicio_solicitud';
 
     public const FACTURA_AUTOSERVICIO_GENERAR = 'facturacion.autoservicio_generar';
@@ -370,6 +372,30 @@ final class CatalogoAjustes
                 min: 0,
                 max: 100000,
                 consecuencia: 'Por debajo de este importe el pago en línea se rehúsa y se le dice el mínimo a quien iba a abonar. No toca los cargos ya emitidos ni la transferencia con comprobante, que la revisa una persona.',
+            ),
+
+            new Ajuste(
+                clave: self::PAGO_TOTAL,
+                grupo: 'Finanzas',
+                etiqueta: 'Dejar pagar TODO lo pendiente en un solo movimiento',
+                descripcion: 'Encendido, el alumno y su familia pueden liquidar de una vez todos sus cargos '
+                    .'abiertos desde el pago en línea —el caso normal—. Apagado, cuando hay dos o más cargos '
+                    .'tienen que elegir cuáles pagar y dejar al menos uno para otro movimiento; se paga cargo por '
+                    .'cargo o en grupos, nunca todo junto. Un solo cargo abierto se paga siempre: pagar tu única '
+                    .'deuda no es «pagar todo de una vez».',
+                tipo: Ajuste::BOOLEANO,
+                /*
+                 * Encendido por omisión: es lo que espera cualquiera al pagar en
+                 * línea —liquidar lo que debe de un tirón— y es como funcionó
+                 * siempre. Apagarlo es la excepción, para la escuela que quiere
+                 * que cada cargo entre por separado (que cada pago mapee a su
+                 * concepto, o cobrar lo más vencido primero). No toca el cobro en
+                 * ventanilla, que hace el personal.
+                 */
+                porDefecto: true,
+                consecuencia: 'Apagado, el pago en línea que cubra TODOS los cargos abiertos se rehúsa cuando hay '
+                    .'dos o más; se elige un subconjunto. No afecta el abono parcial, la transferencia con '
+                    .'comprobante (que revisa una persona) ni el cobro en ventanilla.',
             ),
 
             new Ajuste(

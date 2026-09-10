@@ -75,6 +75,8 @@ const props = defineProps<{
     }[];
     /** Mínimo para abonar en línea. 0 = sin mínimo. */
     abonoMinimo: number;
+    /** ¿Se puede pagar todo lo pendiente de una vez? Apagado, hay que elegir cargos. */
+    pagoTotal: boolean;
     /** Autoservicio de factura: «solicitar», «generar» o null. */
     facturaModo: 'solicitar' | 'generar' | null;
     accesos: { tipo: string; ip: string | null; navegador: string | null; equipo: string | null; momento: string | null }[];
@@ -371,8 +373,9 @@ function colorCalif(estatusClave: string | null): string {
                             :pasarelas="pasarelas"
                             :cuentas="cuentasBancarias"
                             :abono-minimo="abonoMinimo"
+                            :pago-total="pagoTotal"
                         >
-                            <template #nota>Se pagan todos los cargos con saldo, o abona lo que puedas.</template>
+                            <template v-if="pagoTotal" #nota>Se pagan todos los cargos con saldo, o abona lo que puedas.</template>
                         </PanelPagoEnLinea>
 
                         <button

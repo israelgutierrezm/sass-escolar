@@ -221,6 +221,13 @@ class FinanzasController extends Controller
              */
             'abonoMinimo' => app(Ajustes::class)->entero(CatalogoAjustes::ABONO_MINIMO),
             /*
+             * ¿Se puede pagar TODO lo pendiente de una vez? Encendido —lo
+             * normal— se liquida de un tirón; apagado, con dos o más cargos hay
+             * que elegir cuáles pagar. El servidor lo vuelve a exigir al iniciar
+             * el cobro; esto es para que el panel ofrezca la elección.
+             */
+            'pagoTotal' => app(Ajustes::class)->bool(CatalogoAjustes::PAGO_TOTAL),
+            /*
              * La otra forma de pagar: transferir a la cuenta de la escuela y
              * subir el comprobante. Sólo las cuentas que sirven para SU programa académico
              * —una escuela suele tener una por programa académico o por nivel— y que

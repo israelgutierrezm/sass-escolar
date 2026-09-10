@@ -180,6 +180,10 @@ class PadreController extends Controller
             // El mínimo para abonar en línea (cero = sin mínimo). El mismo que
             // ve el portal del alumno; el servidor lo vuelve a exigir al cobrar.
             'abonoMinimo' => app(Ajustes::class)->entero(CatalogoAjustes::ABONO_MINIMO),
+            // ¿La escuela permite pagar todo lo pendiente de una vez? Apagado,
+            // con dos o más cargos el panel pide elegir cuáles. El servidor lo
+            // vuelve a exigir al cobrar.
+            'pagoTotal' => app(Ajustes::class)->bool(CatalogoAjustes::PAGO_TOTAL),
             /*
              * Y la transferencia directa, con las cuentas que sirven para las
              * programas académicos de sus hijos. Se juntan las de todas sus matrículas: la

@@ -16,6 +16,12 @@ import ZonaArchivo from '@/Components/ZonaArchivo.vue';
 interface AdeudoPagable {
     id: number;
     saldo: number;
+    /** Para nombrarlo en la lista de «elegir cuáles pagar». */
+    concepto?: string | null;
+    descripcion?: string | null;
+    periodo?: string | null;
+    vencimiento?: string | null;
+    vence?: string | null;
 }
 
 interface PasarelaDisponible {
@@ -58,8 +64,16 @@ const props = withDefaults(
         cuentas?: CuentaBancaria[];
         /** Mínimo para abonar en línea. 0 = sin mínimo. */
         abonoMinimo?: number;
+        /**
+         * ¿La escuela permite pagar TODO lo pendiente de una vez? Encendido —lo
+         * normal— se liquida todo de un tirón. Apagado, con dos o más cargos hay
+         * que elegir cuáles pagar y dejar al menos uno para otro movimiento; el
+         * servidor lo vuelve a exigir, esto es para ofrecer la elección y no
+         * dejar salir un cobro que se va a rehusar.
+         */
+        pagoTotal?: boolean;
     }>(),
-    { seleccionados: () => [], cuentas: () => [], abonoMinimo: 0 },
+    { seleccionados: () => [], cuentas: () => [], abonoMinimo: 0, pagoTotal: true },
 );
 
 const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
@@ -67,16 +81,56 @@ const pesos = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN
 const yendoAPagar = ref<string | null>(null);
 const error = ref<string | null>(null);
 
+const abiertos = computed(() => props.adeudos.filter((a) => a.saldo > 0));
+
+/*
+ * ── Elegir cuáles pagar ────────────────────────────────────────────────────
+ * Con «pagar todo» apagado y dos o más cargos, se elige un subconjunto aquí
+ * mismo: ni todos —eso es justo lo que la escuela apagó— ni ninguno. Con «pagar
+ * todo» permitido, o con un solo cargo, se paga lo de siempre y no hay nada que
+ * elegir. El servidor vuelve a exigir la regla: esto sólo la refleja.
+ */
+const modoElegir = computed(() => !props.pagoTotal && abiertos.value.length >= 2);
+const elegidos = ref<number[]>([]);
+
+function alternarCargo(id: number): void {
+    const i = elegidos.value.indexOf(id);
+    i === -1 ? elegidos.value.push(id) : elegidos.value.splice(i, 1);
+}
+
 /** Sin marcar nada se pagan TODOS los cargos abiertos, que es lo que se espera. */
 const aPagar = computed(() => {
-    const abiertos = props.adeudos.filter((a) => a.saldo > 0);
+    if (modoElegir.value) {
+        return abiertos.value.filter((a) => elegidos.value.includes(a.id));
+    }
 
     return props.seleccionados.length
-        ? abiertos.filter((a) => props.seleccionados.includes(a.id))
-        : abiertos;
+        ? abiertos.value.filter((a) => props.seleccionados.includes(a.id))
+        : abiertos.value;
 });
 
 const total = computed(() => aPagar.value.reduce((suma, a) => suma + a.saldo, 0));
+
+/**
+ * ¿Este cobro cubre TODO lo pendiente? Para decirlo con todas sus letras. Sólo
+ * vale la pena nombrarlo con dos o más cargos: con uno, «(1 cargo)» ya lo dice.
+ */
+const pagandoTodo = computed(
+    () => !modoElegir.value && abiertos.value.length >= 2 && aPagar.value.length >= abiertos.value.length,
+);
+
+/**
+ * Por qué no se puede pagar todavía en modo «elegir»: hay que marcar al menos
+ * uno y dejar al menos uno. Pagar todos de una vez es lo que se apagó.
+ */
+const problemaSeleccion = computed<string | null>(() => {
+    if (!modoElegir.value) return null;
+    if (!elegidos.value.length) return 'Marca los cargos que quieres pagar.';
+    if (elegidos.value.length >= abiertos.value.length) {
+        return 'No se pueden pagar todos de una vez: deja al menos uno para otro movimiento.';
+    }
+    return null;
+});
 
 /*
  * ── Abonar una cantidad menor ──────────────────────────────────────────────
@@ -101,7 +155,9 @@ const problemaAbono = computed<string | null>(() => {
     return null;
 });
 
-const puedePagar = computed(() => aCobrar.value > 0 && problemaAbono.value === null);
+const puedePagar = computed(
+    () => aCobrar.value > 0 && problemaAbono.value === null && problemaSeleccion.value === null,
+);
 
 /**
  * Manda a la pasarela.
@@ -239,15 +295,43 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
 
 <template>
     <div>
-        <p class="text-sm">
+        <!-- Cuando hay que elegir y todavía no se eligió bien, la instrucción manda. -->
+        <p v-if="modoElegir && problemaSeleccion" class="text-sm" :style="{ color: 'var(--color-suave)' }">
+            Tu escuela pide elegir qué cargos pagar: no se pueden pagar todos en un solo movimiento.
+            Marca abajo los que quieras cubrir ahora.
+        </p>
+        <p v-else class="text-sm">
             Vas a pagar
             <strong>{{ pesos.format(aCobrar) }}</strong>
             <span :style="{ color: 'var(--color-suave)' }">
-                <template v-if="abonando">a cuenta de {{ pesos.format(total) }} en </template>
-                <template v-else>(</template>{{ aPagar.length === 1 ? '1 cargo' : `${aPagar.length} cargos` }}{{ abonando ? '.' : ').' }}
+                <template v-if="abonando">a cuenta de {{ pesos.format(total) }} en {{ aPagar.length === 1 ? '1 cargo' : `${aPagar.length} cargos` }}.</template>
+                <template v-else>({{ aPagar.length === 1 ? '1 cargo' : `${aPagar.length} cargos` }}<template v-if="pagandoTodo">, todo lo pendiente</template>).</template>
                 <slot name="nota" />
             </span>
         </p>
+
+        <!--
+            Elegir cuáles pagar. Sólo aparece cuando la escuela apagó «pagar todo»
+            y hay dos o más cargos: hay que marcar un subconjunto y dejar al menos
+            uno para otro movimiento.
+        -->
+        <div v-if="modoElegir" class="mt-3 space-y-1.5">
+            <label
+                v-for="a in abiertos"
+                :key="a.id"
+                class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
+                :style="{ borderColor: 'var(--color-borde)' }"
+            >
+                <span class="flex min-w-0 items-center gap-2">
+                    <input type="checkbox" :checked="elegidos.includes(a.id)" @change="alternarCargo(a.id)" />
+                    <span class="truncate">
+                        {{ a.concepto ?? a.descripcion ?? 'Cargo' }}
+                        <span v-if="a.periodo" :style="{ color: 'var(--color-suave)' }"> · {{ a.periodo }}</span>
+                    </span>
+                </span>
+                <span class="shrink-0 tabular-nums">{{ pesos.format(a.saldo) }}</span>
+            </label>
+        </div>
 
         <!--
             Abonar menos que el total. El motor reparte el importe del cargo más

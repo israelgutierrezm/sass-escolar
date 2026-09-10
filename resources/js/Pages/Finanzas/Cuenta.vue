@@ -129,6 +129,8 @@ const props = defineProps<{
     facturas: { id: number; uuid: string | null; estatus: string; total: number; fecha_timbrado: string | null }[];
     /** Mínimo para abonar en línea. 0 = sin mínimo. */
     abonoMinimo: number;
+    /** ¿Se puede pagar todo lo pendiente de una vez? Apagado, hay que elegir cargos. */
+    pagoTotal: boolean;
     /** Autoservicio de factura: «solicitar», «generar» o null (ningún canal abierto). */
     facturaModo: 'solicitar' | 'generar' | null;
     facturaAutoservicio: {
@@ -650,9 +652,10 @@ function firmarConvenio(): void {
                     :seleccionados="seleccionados"
                     :cuentas="cuentasBancarias"
                     :abono-minimo="abonoMinimo"
+                    :pago-total="pagoTotal"
                 >
                     <template #nota>
-                        <template v-if="!seleccionados.length">
+                        <template v-if="pagoTotal && !seleccionados.length">
                             Marca cargos en la tabla si quieres pagar sólo algunos.
                         </template>
                     </template>

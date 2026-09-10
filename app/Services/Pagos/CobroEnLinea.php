@@ -102,6 +102,28 @@ class CobroEnLinea
             'Esos cargos ya no tienen saldo pendiente.',
         );
 
+        /*
+         * Pagar todo de una vez, si la escuela lo permite.
+         *
+         * Apagado el interruptor, un cobro de AUTOSERVICIO no puede cubrir TODOS
+         * los cargos abiertos cuando hay dos o más: se elige un subconjunto y el
+         * resto se paga en otro movimiento. La comprobación es la capacidad de
+         * verdad —esconder el botón no basta, el POST llega igual—; el panel sólo
+         * la refleja. Un único cargo abierto nunca cae aquí: pagar tu única deuda
+         * no es «pagar todo de una vez». El abono parcial no es una salida: elegir
+         * los mismos cargos y abonar sigue tocándolos todos en un movimiento.
+         */
+        if (! $this->ajustes->bool(CatalogoAjustes::PAGO_TOTAL)) {
+            $abiertos = $this->cuantosCargosAbiertos($titular);
+
+            AvisoParaElUsuario::si(
+                $abiertos >= 2 && $adeudos->count() >= $abiertos,
+                422,
+                'Tu escuela pide elegir qué cargos pagar: no se pueden pagar todos en un solo movimiento. '
+                    .'Marca los que quieras cubrir ahora y deja al menos uno para otro pago.',
+            );
+        }
+
         // Sin importe, se cobra el saldo entero de lo elegido —lo de siempre—.
         // Con importe, es un abono: se valida contra el mínimo de la escuela y
         // se topa al saldo, y el motor de pago lo reparte del más vencido al
@@ -345,6 +367,25 @@ class CobroEnLinea
             ->orderBy('fecha_vencimiento')
             ->orderBy('id')
             ->get();
+    }
+
+    /**
+     * Cuántos cargos abiertos tiene el titular en total.
+     *
+     * Es el denominador de «pagar todo»: se compara contra los cargos elegidos
+     * para saber si el cobro los cubriría todos. Cuenta lo mismo que el panel
+     * llama «abierto» —`porCobrar`, que es saldo pendiente—, para que la pantalla
+     * y el servidor no discrepen.
+     */
+    private function cuantosCargosAbiertos(MatriculaOferta|Aspirante $titular): int
+    {
+        return Adeudo::query()
+            ->when($titular instanceof Aspirante,
+                fn ($q) => $q->deAspirante($titular->id),
+                fn ($q) => $q->deMatricula($titular->id),
+            )
+            ->porCobrar()
+            ->count();
     }
 
     /** @return array{matricula_oferta_id: ?int, aspirante_id: ?int} */
