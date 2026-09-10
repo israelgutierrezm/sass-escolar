@@ -7,9 +7,7 @@ namespace App\Http\Controllers;
 use App\Configuracion\Ajustes;
 use App\Configuracion\CatalogoAjustes;
 use App\Exceptions\AvisoParaElUsuario;
-use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\ControlEscolar\Historial;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\Sancion;
@@ -21,7 +19,7 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
-use App\Services\Familia\RepresentacionDelTutor;
+use App\Services\Familia\EntregaDocumentos;
 use App\Services\Familia\RespuestaAutorizacion;
 use App\Services\Finanzas\AutoservicioFactura;
 use App\Services\HistorialDelAlumno;
@@ -270,11 +268,10 @@ class PadreController extends Controller
     }
 
     /**
-     * El bloque de documentos del hijo, o null si aquí no aplica.
-     *
-     * Las tres capas las decide `RepresentacionDelTutor`, que es el mismo
-     * servicio del que se defiende el controlador de subida: la pantalla no
-     * puede ofrecer lo que el servidor rechaza.
+     * El bloque de documentos del hijo, o null si aquí no aplica. La lista y las
+     * tres capas viven en `EntregaDocumentos`, compartido con el controlador de
+     * subida y con la API: la pantalla no puede ofrecer lo que el servidor
+     * rechaza.
      *
      * @return array{
      *     motivo: string|null, edad: int|null, mayoria_de_edad: int,
@@ -283,63 +280,7 @@ class PadreController extends Controller
      */
     private function entregaDocumentos(TutorAlumno $vinculo, Persona $hijo): ?array
     {
-        $representacion = app(RepresentacionDelTutor::class);
-
-        if (! $representacion->laEscuelaPermiteEntregarDocumentos()) {
-            return null;
-        }
-
-        $motivo = $representacion->motivoParaNoEntregarDocumentos($vinculo, $hijo);
-
-        $bloque = [
-            'motivo' => $motivo,
-            'edad' => $representacion->edad($hijo),
-            'mayoria_de_edad' => $representacion->mayoriaDeEdad(),
-            'documentos' => [],
-            'tipos' => [],
-        ];
-
-        /*
-         * Si no puede entregar tampoco se le enseñan los papeles: son del
-         * expediente del alumno, y consultarlos es representarlo igual que
-         * subirlos. Se devuelve el motivo y nada más.
-         */
-        if ($motivo !== null) {
-            return $bloque;
-        }
-
-        return [
-            ...$bloque,
-            'documentos' => DocumentoAlumno::query()
-                ->with(['documento:id,nombre', 'estado:id,clave,nombre'])
-                ->where('persona_id', $hijo->id)
-                ->get()
-                ->map(fn (DocumentoAlumno $d) => [
-                    'id' => $d->id,
-                    'documento_id' => $d->documento_id,
-                    'documento' => $d->documento?->nombre,
-                    'descripcion' => $d->descripcion,
-                    'estado' => $d->estado?->nombre,
-                    'estado_clave' => $d->estado?->clave,
-                    'vigencia' => $d->vigencia?->toDateString(),
-                    'vencido' => $d->estaVencido(),
-                    'observaciones' => $d->observaciones,
-                ])->values(),
-            /*
-             * Sólo el ámbito ALUMNO. Ofrecerle el catálogo entero le pediría su
-             * propia identificación de tutor, que tiene su pantalla aparte.
-             */
-            'tipos' => DocumentoRequerido::query()
-                ->delAmbito(DocumentoRequerido::AMBITO_ALUMNO)
-                ->orderByDesc('obligatorio')
-                ->orderBy('nombre')
-                ->get(['id', 'nombre', 'obligatorio'])
-                ->map(fn (DocumentoRequerido $d) => [
-                    'id' => $d->id,
-                    'nombre' => $d->nombre,
-                    'obligatorio' => (bool) $d->obligatorio,
-                ])->values(),
-        ];
+        return app(EntregaDocumentos::class)->datos($hijo, $vinculo);
     }
 
     /**

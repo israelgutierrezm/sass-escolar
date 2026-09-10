@@ -6,7 +6,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Controller;
+use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\Sancion;
 use App\Models\Identidad\Autorizacion;
@@ -15,6 +17,7 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
+use App\Services\Familia\EntregaDocumentos;
 use App\Services\Familia\RespuestaAutorizacion;
 use App\Services\HistorialDelAlumno;
 use App\Services\Plataforma\ModulosDeLaEscuela;
@@ -56,6 +59,7 @@ class PadreApiController extends Controller
         private readonly HistorialDelAlumno $historial,
         private readonly EstadoCuenta $estadoCuenta,
         private readonly RespuestaAutorizacion $autorizaciones,
+        private readonly EntregaDocumentos $documentos,
     ) {}
 
     /** Los hijos vinculados, con su estado según lo que la escuela le dejó ver. */
@@ -172,6 +176,90 @@ class PadreApiController extends Controller
         $this->autorizaciones->revocar($autorizacion, $peticion->user(), $datos['comentario'] ?? null);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Los documentos que la escuela le pide al hijo y los que ya subió, cuando
+     * el tutor puede entregarlos por él. El motivo viaja dentro cuando no puede;
+     * 404 cuando la escuela no tiene contratado este acto.
+     */
+    public function documentos(Request $peticion, Persona $hijo): JsonResponse
+    {
+        $vinculo = $this->vinculoCon($hijo, $peticion->user());
+        AvisoParaElUsuario::si($vinculo === null, 403, 'Este alumno no está vinculado a tu cuenta.');
+
+        $datos = $this->documentos->datos($hijo, $vinculo);
+        AvisoParaElUsuario::si($datos === null, 404, 'Tu escuela no tiene activada la entrega de documentos por la familia.');
+
+        return response()->json($datos);
+    }
+
+    /** Sube (o reemplaza) un documento del hijo. Multipart: documento_id + archivo. */
+    public function subirDocumento(Request $peticion, Persona $hijo): JsonResponse
+    {
+        $vinculo = $this->vinculoCon($hijo, $peticion->user());
+        $this->documentos->exigirPoderEntregar($vinculo, $hijo);
+
+        $datos = $peticion->validate([
+            // Sólo del ÁMBITO ALUMNO: el id de un documento de otro ámbito no
+            // debe acabar en el expediente del alumno.
+            'documento_id' => [
+                'required',
+                'integer',
+                function (string $atributo, mixed $valor, callable $falla) {
+                    $delAmbito = DocumentoRequerido::query()
+                        ->delAmbito(DocumentoRequerido::AMBITO_ALUMNO)
+                        ->whereKey($valor)
+                        ->exists();
+
+                    if (! $delAmbito) {
+                        $falla('Ese documento no es de los que la escuela le pide a tu hijo.');
+                    }
+                },
+            ],
+            'archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'descripcion' => ['nullable', 'string', 'max:100'],
+            'vigencia' => ['nullable', 'date', 'after:today'],
+        ], [
+            'archivo.max' => 'El archivo no puede pasar de 5 MB.',
+            'archivo.mimes' => 'Solo se aceptan PDF o imágenes.',
+            'vigencia.after' => 'Un documento que ya venció no sirve como comprobante.',
+        ]);
+
+        $error = $this->documentos->subir(
+            $hijo,
+            (int) $datos['documento_id'],
+            $peticion->file('archivo'),
+            $datos['descripcion'] ?? null,
+            $datos['vigencia'] ?? null,
+        );
+
+        // Lo aceptado no se pisa: se dice, no se traga.
+        AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Retira un documento del hijo (lo aceptado no se retira desde aquí). */
+    public function eliminarDocumento(Request $peticion, Persona $hijo, DocumentoAlumno $documento): JsonResponse
+    {
+        $vinculo = $this->vinculoCon($hijo, $peticion->user());
+        $this->documentos->exigirPoderEntregar($vinculo, $hijo);
+        $this->documentos->exigirDeEseHijo($hijo, $documento);
+
+        $error = $this->documentos->eliminar($documento);
+        AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** El vínculo de este tutor con el hijo, o null si no es suyo. */
+    private function vinculoCon(Persona $hijo, $usuario): ?TutorAlumno
+    {
+        return TutorAlumno::query()
+            ->where('tutor_persona_id', $usuario?->persona_id)
+            ->where('alumno_persona_id', $hijo->id)
+            ->first();
     }
 
     /**

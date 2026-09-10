@@ -4005,6 +4005,16 @@ Route::middleware([
                 ->whereNumber('autorizacion')->middleware('can:ver-mis-hijos')->name('autorizaciones.responder');
             Route::post('autorizaciones/{autorizacion}/revocar', [PadreApiController::class, 'revocar'])
                 ->whereNumber('autorizacion')->middleware('can:ver-mis-hijos')->name('autorizaciones.revocar');
+
+            // Documentos del hijo menor: los que la escuela pide y los subidos,
+            // subir/reemplazar y retirar. Las tres capas (escuela → 404, vínculo
+            // y edad → 403) las exige el controlador por el servicio compartido.
+            Route::get('hijos/{hijo}/documentos', [PadreApiController::class, 'documentos'])
+                ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('documentos');
+            Route::post('hijos/{hijo}/documentos', [PadreApiController::class, 'subirDocumento'])
+                ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('documentos.subir');
+            Route::delete('hijos/{hijo}/documentos/{documento}', [PadreApiController::class, 'eliminarDocumento'])
+                ->whereNumber(['hijo', 'documento'])->middleware('can:ver-mis-hijos')->name('documentos.eliminar');
         });
 
         /*
