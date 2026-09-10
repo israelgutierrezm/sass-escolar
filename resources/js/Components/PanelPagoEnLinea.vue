@@ -121,11 +121,16 @@ const pagandoTodo = computed(
 
 /**
  * Por qué no se puede pagar todavía en modo «elegir»: hay que marcar al menos
- * uno y dejar al menos uno. Pagar todos de una vez es lo que se apagó.
+ * uno y dejar al menos uno. Pagar todos de una vez es lo que se apagó. El texto
+ * cambia según el caso —falta marcar, o se marcaron todos— y se enseña en el
+ * encabezado; decir «marca abajo» a quien ya marcó todo confunde.
  */
 const problemaSeleccion = computed<string | null>(() => {
     if (!modoElegir.value) return null;
-    if (!elegidos.value.length) return 'Marca los cargos que quieres pagar.';
+    if (!elegidos.value.length) {
+        return 'Tu escuela pide elegir qué cargos pagar: no se pueden pagar todos en un solo '
+            + 'movimiento. Marca abajo los que quieras cubrir ahora.';
+    }
     if (elegidos.value.length >= abiertos.value.length) {
         return 'No se pueden pagar todos de una vez: deja al menos uno para otro movimiento.';
     }
@@ -203,6 +208,14 @@ function elegirArchivo(archivo: File | null): void {
 
 function mandarComprobante(): void {
     errorComprobante.value = null;
+
+    // La misma regla que las pasarelas: si la escuela apagó «pagar todo», la
+    // transferencia tampoco puede cubrir todos los cargos de una vez.
+    if (problemaSeleccion.value !== null) {
+        errorComprobante.value = problemaSeleccion.value;
+
+        return;
+    }
 
     if (!comprobante.archivo) {
         errorComprobante.value = 'Adjunta el comprobante de la transferencia.';
@@ -297,12 +310,11 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
     <div>
         <!-- Cuando hay que elegir y todavía no se eligió bien, la instrucción manda. -->
         <p v-if="modoElegir && problemaSeleccion" class="text-sm" :style="{ color: 'var(--color-suave)' }">
-            Tu escuela pide elegir qué cargos pagar: no se pueden pagar todos en un solo movimiento.
-            Marca abajo los que quieras cubrir ahora.
+            {{ problemaSeleccion }}
         </p>
         <p v-else class="text-sm">
             Vas a pagar
-            <strong>{{ pesos.format(aCobrar) }}</strong>
+            <strong>{{ pesos.format(aCobrar) }}</strong>{{ ' ' }}
             <span :style="{ color: 'var(--color-suave)' }">
                 <template v-if="abonando">a cuenta de {{ pesos.format(total) }} en {{ aPagar.length === 1 ? '1 cargo' : `${aPagar.length} cargos` }}.</template>
                 <template v-else>({{ aPagar.length === 1 ? '1 cargo' : `${aPagar.length} cargos` }}<template v-if="pagandoTodo">, todo lo pendiente</template>).</template>
@@ -516,7 +528,7 @@ async function pagar(clave: string, metodo?: string): Promise<void> {
                         type="button"
                         class="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-60"
                         :style="{ backgroundColor: 'var(--color-acento)', color: 'var(--color-acento-texto)' }"
-                        :disabled="enviandoComprobante"
+                        :disabled="enviandoComprobante || problemaSeleccion !== null"
                         @click="mandarComprobante"
                     >
                         {{ enviandoComprobante ? 'Enviando…' : 'Enviar comprobante' }}
