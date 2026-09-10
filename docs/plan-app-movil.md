@@ -167,9 +167,20 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   bajo `can:pasar-lista`. Flutter: `PantallaAsistencia` (fecha, modalidad, marcar
   y guardar). Pruebas: `prueba-pase-de-lista.php` (12) + HTTP real + 3 Flutter.
 
-Lo que sigue: capturar calificaciones y asentar acta (docente); pagar en línea,
-solicitar factura, entregar documentos y confirmar autorizaciones (familia).
-Cada uno con su rebanada, sobre la API de escritura que corresponda.
+- **Capturar calificaciones** (docente) ✅. La escritura y el estado del acta
+  salen a un servicio compartido `App\Services\CapturaDeCalificaciones` (la web
+  delega en él): sólo pares de la materia, respeta los cortes del calendario,
+  NULL no es cero, revive la fila borrada. `GET/POST
+  /api/v1/docente/materias/{ag}/calificaciones` bajo `can:capturar-calificaciones`
+  (materia ajena → 403, fuera de escala → 422, acta cerrada → 422). Flutter:
+  `PantallaCalificaciones` (hoja alumnos × componentes, con el final calculado).
+  **Cerrar/asentar el acta NO se trae a la app**: es un acto deliberado e
+  irreversible que se queda en la web. Pruebas:
+  `prueba-captura-calificaciones.php` (13) + HTTP real + 2 Flutter.
+
+Lo que sigue: pagar en línea, solicitar factura, entregar documentos y confirmar
+autorizaciones (familia). Cada uno con su rebanada, sobre la API de escritura
+que corresponda.
 
 ## Reglas transversales
 
