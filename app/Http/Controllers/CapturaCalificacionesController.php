@@ -15,6 +15,7 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Services\AsentadorActa;
 use App\Services\CalculadoraCalificacion;
 use App\Services\CalendarioCaptura;
+use App\Services\CapturaDeCalificaciones;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,6 +46,7 @@ class CapturaCalificacionesController extends Controller
         private readonly AsentadorActa $asentador,
         private readonly CalculadoraCalificacion $calculadora,
         private readonly CalendarioCaptura $calendario,
+        private readonly CapturaDeCalificaciones $captura,
     ) {}
 
     /** Materias sobre las que este usuario puede capturar, por ciclo. */
@@ -114,8 +116,8 @@ class CapturaCalificacionesController extends Controller
 
         $esquema = $this->asentador->esquema($asignaturaGrupo);
         $plan = $asignaturaGrupo->planMateria?->plan;
-        $correccion = $this->correccionAbierta($asignaturaGrupo);
-        $cerrada = $this->actaCerrada($asignaturaGrupo);
+        $correccion = $this->captura->correccionAbierta($asignaturaGrupo);
+        $cerrada = $this->captura->actaCerrada($asignaturaGrupo);
         $capturaAbierta = $correccion !== null || $cerrada === null;
 
         $alumnos = $this->asentador->inscripcionesCalificables($asignaturaGrupo)
@@ -203,7 +205,7 @@ class CapturaCalificacionesController extends Controller
     {
         $this->autorizarCaptura($request, $asignaturaGrupo);
 
-        if ($this->correccionAbierta($asignaturaGrupo) === null && $this->actaCerrada($asignaturaGrupo) !== null) {
+        if (! $this->captura->capturaAbierta($asignaturaGrupo)) {
             throw ValidationException::withMessages([
                 'calificaciones' => 'El acta ya está cerrada. Para cambiar una calificación hay que emitir un acta de corrección.',
             ]);
@@ -226,61 +228,14 @@ class CapturaCalificacionesController extends Controller
             'calificaciones.*.calificacion.decimal' => 'Este plan califica '.$plan?->comoSeCalifica().'.',
         ]);
 
-        // Solo se aceptan pares que pertenezcan a ESTA materia-grupo: el id de
-        // una inscripción ajena no debe poder colarse por el payload.
-        $inscripciones = Inscripcion::query()
-            ->where('asignatura_grupo_id', $asignaturaGrupo->id)
-            ->pluck('id')
-            ->flip();
-
-        $componentes = EsquemaEvaluacion::query()
-            ->where('plan_materia_id', $asignaturaGrupo->plan_materia_id)
-            ->pluck('id')
-            ->flip();
-
-        $personaId = $this->personaId($request);
-
-        // El calendario decide qué cortes se pueden tocar hoy. Se revalida aquí
-        // aunque la hoja ya bloquee las columnas: la ventana pudo cerrarse entre
-        // que se pintó la pantalla y se envió el formulario.
-        $estadoDeCortes = $this->calendario->estadoPorParcial($asignaturaGrupo, $personaId);
-        $parcialPorComponente = EsquemaEvaluacion::query()
-            ->where('plan_materia_id', $asignaturaGrupo->plan_materia_id)
-            ->pluck('parcial', 'id');
-
-        $guardadas = 0;
-        $rechazados = [];
-
-        DB::transaction(function () use ($datos, $inscripciones, $componentes, $personaId, $estadoDeCortes, $parcialPorComponente, &$guardadas, &$rechazados): void {
-            foreach ($datos['calificaciones'] as $fila) {
-                if (! $inscripciones->has($fila['inscripcion_id']) || ! $componentes->has($fila['esquema_evaluacion_id'])) {
-                    continue;
-                }
-
-                $parcial = $parcialPorComponente[$fila['esquema_evaluacion_id']] ?? null;
-                $corte = $estadoDeCortes[$parcial === null ? '' : (string) $parcial] ?? ['abierto' => true, 'motivo' => null];
-
-                if (! $corte['abierto']) {
-                    $rechazados[$corte['motivo'] ?? 'Corte cerrado.'] = true;
-
-                    continue;
-                }
-
-                CalificacionComponente::actualizarOReviver(
-                    [
-                        'inscripcion_id' => $fila['inscripcion_id'],
-                        'esquema_evaluacion_id' => $fila['esquema_evaluacion_id'],
-                    ],
-                    [
-                        'calificacion' => $fila['calificacion'] ?? null,
-                        'capturado_por' => $personaId,
-                        'capturado_en' => now(),
-                    ],
-                );
-
-                $guardadas++;
-            }
-        });
+        // La escritura vive en el servicio (una sola verdad con la app móvil):
+        // sólo pares de esta materia, sólo los cortes abiertos hoy, y NULL no es
+        // cero. Devuelve qué se guardó y qué se rechazó por corte cerrado.
+        ['guardadas' => $guardadas, 'rechazados' => $rechazados] = $this->captura->guardar(
+            $asignaturaGrupo,
+            $datos['calificaciones'],
+            $this->personaId($request),
+        );
 
         if ($rechazados !== []) {
             // Se guarda lo que sí se podía y se explica lo que no: hacer fallar
@@ -289,7 +244,7 @@ class CapturaCalificacionesController extends Controller
             return back()->with('advertencia', sprintf(
                 '%s. %s',
                 $guardadas === 1 ? 'Se guardó 1 calificación' : "Se guardaron {$guardadas} calificaciones",
-                implode(' ', array_keys($rechazados)),
+                implode(' ', $rechazados),
             ));
         }
 
@@ -305,13 +260,13 @@ class CapturaCalificacionesController extends Controller
             throw new AccessDeniedHttpException('Solo el docente titular de la materia o control escolar pueden firmar el acta.');
         }
 
-        $acta = $this->correccionAbierta($asignaturaGrupo);
+        $acta = $this->captura->correccionAbierta($asignaturaGrupo);
 
         if ($acta === null) {
             // Sin corrección en curso, un acta cerrada significa que esta
             // materia ya se asentó. Se corta aquí para no dejar un borrador
             // que el servicio rechazaría de todos modos.
-            if ($this->actaCerrada($asignaturaGrupo) !== null) {
+            if ($this->captura->actaCerrada($asignaturaGrupo) !== null) {
                 throw ValidationException::withMessages([
                     'acta' => 'Esta materia ya tiene acta asentada. Para cambiarla hay que emitir un acta de corrección.',
                 ]);
@@ -347,7 +302,7 @@ class CapturaCalificacionesController extends Controller
             'motivo.min' => 'El motivo debe explicar la corrección (mínimo 10 caracteres).',
         ]);
 
-        $cerrada = $this->actaCerrada($asignaturaGrupo);
+        $cerrada = $this->captura->actaCerrada($asignaturaGrupo);
 
         if ($cerrada === null) {
             throw ValidationException::withMessages(['motivo' => 'No hay un acta cerrada que corregir.']);
@@ -367,27 +322,6 @@ class CapturaCalificacionesController extends Controller
     private function personaId(Request $request): ?int
     {
         return $request->user()?->persona_id;
-    }
-
-    /** La corrección en curso, si la hay. Mientras exista, la captura sigue abierta. */
-    private function correccionAbierta(AsignaturaGrupo $asignaturaGrupo): ?Acta
-    {
-        return Acta::query()
-            ->where('asignatura_grupo_id', $asignaturaGrupo->id)
-            ->where('situacion', Acta::ABIERTA)
-            ->whereNotNull('acta_origen_id')
-            ->latest('id')
-            ->first();
-    }
-
-    /** El acta firmada más reciente de la materia. */
-    private function actaCerrada(AsignaturaGrupo $asignaturaGrupo): ?Acta
-    {
-        return Acta::query()
-            ->where('asignatura_grupo_id', $asignaturaGrupo->id)
-            ->where('situacion', Acta::CERRADA)
-            ->latest('id')
-            ->first();
     }
 
     /**

@@ -5,13 +5,21 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Academico\EsquemaEvaluacion;
+use App\Models\Academico\PlanEstudio;
 use App\Models\ControlEscolar\AsignaturaGrupo;
+use App\Models\ControlEscolar\CalificacionComponente;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
+use App\Services\AsentadorActa;
 use App\Services\Asistencia\PaseDeLista;
+use App\Services\CalculadoraCalificacion;
+use App\Services\CalendarioCaptura;
+use App\Services\CapturaDeCalificaciones;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
@@ -34,7 +42,13 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class DocenteApiController extends Controller
 {
-    public function __construct(private readonly PaseDeLista $pase) {}
+    public function __construct(
+        private readonly PaseDeLista $pase,
+        private readonly AsentadorActa $asentador,
+        private readonly CalculadoraCalificacion $calculadora,
+        private readonly CalendarioCaptura $calendario,
+        private readonly CapturaDeCalificaciones $captura,
+    ) {}
 
     /** Las materias que imparte, con su grupo, horario y cuántos alumnos. */
     public function materias(Request $peticion): JsonResponse
@@ -179,6 +193,110 @@ class DocenteApiController extends Controller
         );
 
         return response()->json(['guardadas' => $guardadas]);
+    }
+
+    /**
+     * La hoja de captura: alumnos × componentes, con lo ya capturado y el final
+     * calculado. `componentes` trae el parcial de cada uno; `calendario` dice qué
+     * cortes se pueden tocar hoy, y `captura_abierta` si el acta lo permite.
+     *
+     * Las cifras salen de los mismos servicios que la web —`AsentadorActa`,
+     * `CalculadoraCalificacion`, `CalendarioCaptura`—: una sola verdad.
+     */
+    public function calificaciones(Request $peticion, AsignaturaGrupo $asignaturaGrupo): JsonResponse
+    {
+        $this->autorizarMateria($peticion, $asignaturaGrupo);
+
+        $asignaturaGrupo->load(['planMateria.asignatura:id,nombre', 'planMateria.plan', 'grupo.ciclo:id,clave']);
+
+        $esquema = $this->asentador->esquema($asignaturaGrupo);
+        $plan = $asignaturaGrupo->planMateria?->plan;
+
+        $alumnos = $this->asentador->inscripcionesCalificables($asignaturaGrupo)
+            ->map(function (Inscripcion $inscripcion) use ($esquema, $plan) {
+                $resultado = $this->calculadora->calcular($inscripcion, $esquema, $plan);
+
+                return [
+                    'inscripcion_id' => $inscripcion->id,
+                    'matricula' => $inscripcion->matriculaOferta?->matricula,
+                    'nombre' => $inscripcion->matriculaOferta?->persona?->nombreCompleto(),
+                    // Un objeto componente → nota (null = sin capturar, NO cero).
+                    'calificaciones' => (object) $inscripcion->calificaciones
+                        ->mapWithKeys(fn (CalificacionComponente $c) => [
+                            (string) $c->esquema_evaluacion_id => $c->calificacion === null ? null : (float) $c->calificacion,
+                        ])
+                        ->all(),
+                    'final' => $resultado->final,
+                    'completa' => $resultado->completa,
+                    'aprobada' => $resultado->aprobada,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return response()->json([
+            'materia' => [
+                'id' => $asignaturaGrupo->id,
+                'nombre' => $asignaturaGrupo->planMateria?->asignatura?->nombre,
+                'grupo' => $asignaturaGrupo->grupo?->clave,
+                'ciclo' => $asignaturaGrupo->grupo?->ciclo?->clave,
+                'plan' => $plan?->nombre,
+            ],
+            'escala' => [
+                'minima' => $plan?->calificacion_minima,
+                'maxima' => $plan?->calificacion_maxima,
+                'aprobatoria' => $plan?->calificacion_minima_aprobatoria,
+                'decimales' => $plan?->decimales_calificacion,
+            ],
+            'componentes' => $esquema->map(fn (EsquemaEvaluacion $c) => [
+                'id' => $c->id,
+                'componente' => $c->componente,
+                'parcial' => $c->parcial,
+                'porcentaje' => (float) $c->porcentaje,
+            ])->values()->all(),
+            'calendario' => $this->calendario->estadoPorParcial($asignaturaGrupo, $this->personaId($peticion)),
+            'captura_abierta' => $this->captura->capturaAbierta($asignaturaGrupo),
+            'alumnos' => $alumnos,
+        ]);
+    }
+
+    /**
+     * Guarda lo capturado. La misma escritura que la web (el servicio
+     * compartido): valida contra la escala del plan, sólo pares de esta materia,
+     * respeta los cortes del calendario y NULL no es cero.
+     */
+    public function guardarCalificaciones(Request $peticion, AsignaturaGrupo $asignaturaGrupo): JsonResponse
+    {
+        $personaId = $this->autorizarMateria($peticion, $asignaturaGrupo);
+
+        if (! $this->captura->capturaAbierta($asignaturaGrupo)) {
+            throw ValidationException::withMessages([
+                'calificaciones' => 'El acta ya está cerrada. Para cambiar una calificación hay que emitir un acta de corrección.',
+            ]);
+        }
+
+        $plan = $asignaturaGrupo->planMateria?->plan;
+        $minima = (float) ($plan?->calificacion_minima ?? 0);
+        $maxima = (float) ($plan?->calificacion_maxima ?? 100);
+
+        $datos = $peticion->validate([
+            'calificaciones' => ['present', 'array'],
+            'calificaciones.*.inscripcion_id' => ['required', 'integer'],
+            'calificaciones.*.esquema_evaluacion_id' => ['required', 'integer'],
+            'calificaciones.*.calificacion' => array_merge(['nullable'], PlanEstudio::reglasPara($plan)),
+        ], [
+            'calificaciones.*.calificacion.min' => "La calificación no puede ser menor que {$minima}.",
+            'calificaciones.*.calificacion.max' => "La calificación no puede ser mayor que {$maxima}.",
+            'calificaciones.*.calificacion.decimal' => 'Este plan califica '.$plan?->comoSeCalifica().'.',
+        ]);
+
+        ['guardadas' => $guardadas, 'rechazados' => $rechazados] = $this->captura->guardar(
+            $asignaturaGrupo,
+            $datos['calificaciones'],
+            $personaId,
+        );
+
+        return response()->json(['guardadas' => $guardadas, 'rechazados' => $rechazados]);
     }
 
     /**

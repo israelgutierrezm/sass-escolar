@@ -4015,6 +4015,15 @@ Route::middleware([
                 ->whereNumber('asignaturaGrupo')->middleware('can:pasar-lista')->name('asistencia');
             Route::post('materias/{asignaturaGrupo}/asistencia', [DocenteApiController::class, 'guardarAsistencia'])
                 ->whereNumber('asignaturaGrupo')->middleware('can:pasar-lista')->name('asistencia.guardar');
+
+            // Capturar calificaciones por componente. Permiso propio
+            // (`capturar-calificaciones`); el alcance por asignación lo exige el
+            // controlador. Cerrar/corregir el acta NO va aquí: es un acto
+            // deliberado que se queda en la web.
+            Route::get('materias/{asignaturaGrupo}/calificaciones', [DocenteApiController::class, 'calificaciones'])
+                ->whereNumber('asignaturaGrupo')->middleware('can:capturar-calificaciones')->name('calificaciones');
+            Route::post('materias/{asignaturaGrupo}/calificaciones', [DocenteApiController::class, 'guardarCalificaciones'])
+                ->whereNumber('asignaturaGrupo')->middleware('can:capturar-calificaciones')->name('calificaciones.guardar');
         });
     });
 });
