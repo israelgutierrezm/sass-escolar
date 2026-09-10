@@ -187,8 +187,23 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   pendientes en el panel). Pruebas: `prueba-api-autorizaciones-familia.php` (9) +
   HTTP real + 3 Flutter.
 
-Lo que sigue: entregar documentos, solicitar factura y pagar en línea (familia).
-Cada uno con su rebanada, sobre la API de escritura que corresponda.
+- **Entregar documentos del hijo** (familia) ✅. La lista de lo pedido, la
+  autorización y las escrituras salen a un servicio compartido
+  `App\Services\Familia\EntregaDocumentos` (la web —`DocumentosDelHijoController`
+  y `PadreController`— delega en él): listar los tipos con lo subido encima,
+  subir (multipart), reemplazar y quitar. **Las TRES capas de la web se
+  respetan**: el vínculo, el ajuste `familia.tutor_entrega_documentos` y la
+  MAYORÍA DE EDAD —un hijo mayor, la escuela sin la función o el vínculo ajeno
+  dan el motivo del servidor, sin dejar entregar—. Un ACEPTADO no se pisa ni se
+  retira. `GET /api/v1/familia/hijos/{hijo}/documentos`, `POST …/documentos`
+  (multipart: `archivo`, `documento_id`) y `DELETE …/documentos/{doc}` bajo
+  `can:ver-mis-hijos`. Flutter: `PantallaDocumentosHijo` (tipos con Subir/
+  Reemplazar/Quitar vía `file_picker`; el motivo cuando `!puedeEntregar`),
+  alcanzada desde la ficha del hijo. Pruebas: `prueba-api-documentos-hijo.php`
+  (12) + HTTP real + 3 Flutter.
+
+Lo que sigue: solicitar factura y pagar en línea (familia). Cada uno con su
+rebanada, sobre la API de escritura que corresponda.
 
 ## Reglas transversales
 
