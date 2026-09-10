@@ -6,6 +6,7 @@ use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\Api\AccesoApiController;
 use App\Http\Controllers\Api\AlumnoApiController;
+use App\Http\Controllers\Api\DocenteApiController;
 use App\Http\Controllers\Api\PadreApiController;
 use App\Http\Controllers\Api\AvisosApiController;
 use App\Http\Controllers\ActividadAspiranteController;
@@ -3994,6 +3995,18 @@ Route::middleware([
                 ->middleware('can:ver-mis-hijos')->name('hijos');
             Route::get('hijos/{hijo}', [PadreApiController::class, 'hijo'])
                 ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('hijo');
+        });
+
+        /*
+         * Portal del DOCENTE. `api.faceta:docente` fija el rol activo a la
+         * faceta; qué materias son suyas lo dice la ASIGNACIÓN dentro del
+         * controlador (una materia ajena → 403), no la URL.
+         */
+        Route::middleware('api.faceta:docente')->prefix('docente')->name('docente.')->group(function () {
+            Route::get('materias', [DocenteApiController::class, 'materias'])
+                ->middleware('can:ver-mis-materias')->name('materias');
+            Route::get('materias/{asignaturaGrupo}', [DocenteApiController::class, 'materia'])
+                ->whereNumber('asignaturaGrupo')->middleware('can:ver-mis-materias')->name('materia');
         });
     });
 });
