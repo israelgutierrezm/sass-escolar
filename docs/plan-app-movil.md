@@ -258,9 +258,26 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   un tercero queda para después** (necesitaría un render de QR). Pruebas:
   `prueba-api-salida-segura-familia.php` (13 verif, 4 mut) + HTTP real + 4 Flutter.
 
-Lo que queda: **citas familia–docente** (pedir/confirmar reunión), la última del
-portal de la familia; y portar flujos de otras facetas (docente/alumno) si se
-decide.
+- **Citas familia–docente** (familia) ✅. La familia pide y cancela citas con los
+  docentes del hijo. Todo sobre `GestorDeCitas` —la misma regla que la web—: el
+  vínculo (`esHijoDe`), que el docente le dé clase (`daClaseA`), la validez del
+  hueco (día de la ventana, rango y múltiplo de la duración), no en el pasado ni
+  ya ocupado, y la máquina de estados. De paso se subió `ventanasPorDocente` del
+  controlador web al servicio, para que web y app ofrezcan los mismos huecos.
+  `GET familia/hijos/{hijo}/citas` (docentes con ventanas, modalidades, citas),
+  `POST …/citas` (solicitar) y `POST familia/citas/{cita}/cancelar`, bajo permiso
+  propio `can:solicitar-citas`; hijo/cita ajena → 404, cancelar sin ser parte →
+  403. La ficha del hijo expone `puede_citas` para gatear la entrada. Flutter:
+  `PantallaCitas` (elegir docente → autollena la ventana única, día y hora de los
+  huecos calculados, y motivo; citas con estado y cancelar). Pruebas:
+  `prueba-api-citas-familia.php` (13 verif, 1 mut) + HTTP real + 5 Flutter.
+
+**Con esto el portal de la FAMILIA queda COMPLETO en la app** —lectura y todos
+sus flujos de escritura: hijos, autorizaciones, documentos, factura, pago en
+línea, salida segura y citas—. Lo que podría venir después es portar flujos de
+otras facetas (docente/alumno tienen sus lecturas; sus escrituras —pasar lista,
+capturar calificaciones— ya están; el alumno no tiene aún factura/pago en la
+app), cada uno con su rebanada.
 
 ## Reglas transversales
 
