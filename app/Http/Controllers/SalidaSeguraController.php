@@ -11,6 +11,7 @@ use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Models\Identidad\SalidaAlumno;
 use App\Models\Identidad\Usuario;
+use App\Services\Familia\AutorizadosParaRecoger;
 use App\Services\Familia\PuedeRecoger;
 use App\Services\Familia\RegistradorDeSalida;
 use Illuminate\Http\RedirectResponse;
@@ -28,7 +29,10 @@ use Inertia\Response;
  */
 class SalidaSeguraController extends Controller
 {
-    public function __construct(private readonly PuedeRecoger $reglas) {}
+    public function __construct(
+        private readonly PuedeRecoger $reglas,
+        private readonly AutorizadosParaRecoger $autorizados,
+    ) {}
 
     // ── Lado de la FAMILIA ──────────────────────────────────────────────────
 
@@ -45,10 +49,7 @@ class SalidaSeguraController extends Controller
             'vigencia_hasta' => ['nullable', 'date', 'after_or_equal:vigencia_desde'],
         ]);
 
-        AutorizadoRecoger::create(array_merge($datos, [
-            'alumno_persona_id' => $hijo->id,
-            'permitido' => true,
-        ]));
+        $this->autorizados->agregar($hijo, $datos);
 
         return back(303)->with('exito', 'Autorizaste a '.$datos['nombre'].' a recoger a tu hijo.');
     }
@@ -63,13 +64,7 @@ class SalidaSeguraController extends Controller
     {
         $this->exigirQueSeaSuHijo($peticion, $autorizado->alumno_persona_id);
 
-        AvisoParaElUsuario::aMenosQue(
-            $autorizado->permitido === true,
-            404,
-            'Eso no es un autorizado tuyo.',
-        );
-
-        $autorizado->delete();
+        $this->autorizados->quitar($autorizado);
 
         return back(303)->with('exito', 'Retiraste la autorización.');
     }
