@@ -202,8 +202,27 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   alcanzada desde la ficha del hijo. Pruebas: `prueba-api-documentos-hijo.php`
   (12) + HTTP real + 3 Flutter.
 
-Lo que sigue: solicitar factura y pagar en línea (familia). Cada uno con su
-rebanada, sobre la API de escritura que corresponda.
+- **Solicitar factura** (familia) ✅. El autoservicio de factura de la web
+  —incluido su portal del padre— YA existía completo, con servicios compartidos
+  (`AutoservicioFactura` para leer, `GestorSolicitudFactura` y `EmisorFactura`
+  para escribir); esta rebanada lo EXPONE en la API móvil, sin reescribir la
+  regla fiscal. La ficha del hijo trae por matrícula `facturas`,
+  `solicitudes_factura` y —con el canal abierto— `factura_autoservicio` (qué se
+  puede facturar y el perfil), más `factura_modo` (generar > solicitar) arriba.
+  Endpoints bajo `familia.*`: `POST facturas/{matricula}/solicitar`, `.../generar`
+  (permiso y canal APARTE) y `GET facturas/solicitudes/{solicitud}/cfdi/{tipo}`.
+  De quién es la cuenta lo decide `VeLaCarteraDelAlumno` —el mismo trait que la
+  web (vínculo + `puede_ver_finanzas`)—; el canal cerrado por la escuela → 404.
+  Flutter: `PantallaSolicitarFactura` (elegir pagos + receptor precargado con el
+  catálogo del SAT) y la sección de facturación en la ficha del hijo. **La
+  DESCARGA del CFDI en la app queda para después** (necesita visor/compartir); la
+  API ya la sirve. **De paso, un bug de la web**: `SolicitudFacturaController`
+  llamaba a `Factura::estaTimbrada()`, inexistente —500 en la descarga del CFDI
+  del autoservicio—; se usa `estaVigente()`. Pruebas:
+  `prueba-api-factura-familia.php` (18 verif, 4 mut) + HTTP real + 5 Flutter.
+
+Lo que sigue: pagar en línea (familia), el más delicado —pasarela, redirección
+y webhook, que en móvil se maneja distinto que en la SPA web—.
 
 ## Reglas transversales
 
