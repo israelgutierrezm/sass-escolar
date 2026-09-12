@@ -221,8 +221,34 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   del autoservicio—; se usa `estaVigente()`. Pruebas:
   `prueba-api-factura-familia.php` (18 verif, 4 mut) + HTTP real + 5 Flutter.
 
-Lo que sigue: pagar en línea (familia), el más delicado —pasarela, redirección
-y webhook, que en móvil se maneja distinto que en la SPA web—.
+- **Pagar en línea** (familia) ✅. El más delicado, y el que confirmó lo que
+  gobierna el diseño móvil: **el webhook concilia el cobro solo, sin depender del
+  cliente** (`CobroEnLinea::conciliar`), así que la app sólo INICIA y luego
+  RELEE. Todas las pasarelas dan una URL (hosted checkout); ninguna usa SDK
+  embebido, así que el reto móvil se reduce a abrir una URL externa
+  (`url_launcher`). Se expone lo que la web ya tenía, sobre los mismos servicios:
+  la ficha del hijo trae el bloque `pago` (pasarelas, abono mínimo, pago total) y
+  por matrícula sus cuentas para transferencia; y dos endpoints bajo `familia.*`:
+  `pagos/{matricula}/iniciar` (reusa `CobroEnLinea::iniciar` con las mismas dos
+  URLs —retorno del navegador y aviso público del webhook—, devuelve la URL de
+  checkout) y `pagos/{matricula}/comprobante` (reusa `RegistroDeComprobante`,
+  extraído de `ComprobantePagoController` a un servicio compartido; nace
+  PENDIENTE). De quién es la cuenta lo cierra `VeLaCarteraDelAlumno`; el filtro
+  de cargos al titular protege el comprobante. Flutter: `PantallaPagar` (elegir
+  cargos respetando `pago_total`, abono opcional, pasarela → abre el checkout con
+  un `abrirUrlProvider` sustituible en pruebas; OpenPay pide método antes) y
+  `PantallaComprobante` (cuentas con la CLABE copiable + subir el comprobante con
+  `file_picker`). **OpenPay SPEI queda como borde**: abre la página web de
+  instrucciones en vez de una pantalla nativa. **De paso, un bug de la web**:
+  `SolicitudFacturaController::descargarCfdi` ya estaba, pero acá no aplica; sí se
+  arregló antes en la rebanada de factura. Pruebas:
+  `prueba-api-pagos-familia.php` (17 verif, 3 mut) + HTTP real + 4 Flutter.
+
+**Con esto la app de la FAMILIA queda completa en sus flujos de lectura y
+escritura**: hijos, autorizaciones, documentos, factura y pago en línea. Lo que
+podría venir después son flujos aún no portados de otras facetas o de la propia
+familia que la web tiene fuera del portal financiero/académico —salida segura y
+citas familia–docente—, cada uno con su rebanada.
 
 ## Reglas transversales
 
