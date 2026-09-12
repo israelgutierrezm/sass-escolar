@@ -274,10 +274,35 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
 
 **Con esto el portal de la FAMILIA queda COMPLETO en la app** —lectura y todos
 sus flujos de escritura: hijos, autorizaciones, documentos, factura, pago en
-línea, salida segura y citas—. Lo que podría venir después es portar flujos de
-otras facetas (docente/alumno tienen sus lecturas; sus escrituras —pasar lista,
-capturar calificaciones— ya están; el alumno no tiene aún factura/pago en la
-app), cada uno con su rebanada.
+línea, salida segura y citas—.
+
+### Rebanada — Alumno: factura y pago en línea ✅
+
+El estado de cuenta del ALUMNO ofrece ahora pagar en línea y facturar su propia
+cuenta, con los MISMOS servicios y pantallas que la familia. Para no duplicar:
+
+- **Servidor**: el payload financiero sale a `App\Services\Finanzas\FinanzasParaApp`
+  (facturas, autoservicio, solicitudes, cuentas para transferencia, `factura_modo`
+  y el bloque `pago`) y las acciones de escritura a un trait
+  `App\Http\Controllers\Concerns\OperaFinanzasEnLinea` (solicitar/generar factura,
+  descargar CFDI, iniciar pago, subir comprobante). Los comparten
+  `AlumnoApiController` y `PadreApiController` —como la web, un solo controlador
+  para los dos—. El estado de cuenta del alumno se enriquece con esos campos y se
+  agregan los endpoints bajo `alumno.*`. De quién es la cuenta lo cierra
+  `VeLaCarteraDelAlumno`: para la faceta ALUMNO, sus PROPIAS matrículas
+  (ALCANCE_PROPIO), así que una matrícula ajena → 403.
+- **Flutter**: las pantallas de pago/factura/comprobante se desacoplan del portal
+  —toman un `refrescar` (qué invalidar) y un `base` (`/familia` o `/alumno`), y
+  `PantallaPagar` toma primitivos en vez de `FinanzasHijo`—, así que el estado de
+  cuenta del alumno las reusa apuntando a `/alumno`. `api.pedirFactura/iniciarPago/
+  subirComprobante` ganan `base` (default `/familia`).
+- Pruebas: `prueba-api-alumno-finanzas.php` (13 verif; la mutación del candado de
+  cartera mata 3) + HTTP real (estado-cuenta con factura/pago); 3 pruebas Flutter
+  que verifican que el alumno se pega al portal `/alumno`. Las suites de la familia
+  y la de lectura del alumno siguen verdes; auditoría del demo sin cambios (69).
+
+Lo que podría venir después: portar más flujos de otras facetas (el docente ya
+tiene lectura + pasar lista + capturar calificaciones), cada uno con su rebanada.
 
 ## Reglas transversales
 
