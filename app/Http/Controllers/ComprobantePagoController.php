@@ -8,8 +8,8 @@ use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Models\Admisiones\MatriculaOferta;
-use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\ComprobantePago;
+use App\Services\Pagos\RegistroDeComprobante;
 use App\Services\RevisorDeComprobantes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,7 +40,10 @@ class ComprobantePagoController extends Controller
     use AcotaPorCampus;
     use VeLaCarteraDelAlumno;
 
-    public function __construct(private readonly RevisorDeComprobantes $revisor) {}
+    public function __construct(
+        private readonly RevisorDeComprobantes $revisor,
+        private readonly RegistroDeComprobante $registro,
+    ) {}
 
     /**
      * Sube el comprobante de una transferencia ya hecha.
@@ -67,26 +70,9 @@ class ComprobantePagoController extends Controller
             'archivo.max' => 'El comprobante no puede pesar más de 5 MB.',
         ]);
 
-        /*
-         * Los cargos se filtran a los de ESTE alumno y que sigan abiertos: los
-         * ids vienen del navegador, y sin filtrar se podría declarar que se está
-         * pagando la deuda de otro.
-         */
-        $adeudos = $this->adeudosDe($matricula, $datos['adeudo_ids'] ?? []);
-
-        // Disco privado: un comprobante trae nombre, banco y a veces número de
-        // cuenta de una persona.
-        $ruta = $request->file('archivo')->store("comprobantes/{$matricula->id}", 'local');
-
-        ComprobantePago::create([
-            'matricula_oferta_id' => $matricula->id,
-            'cuenta_bancaria_id' => $datos['cuenta_bancaria_id'] ?? null,
-            'monto' => $datos['monto'],
-            'fecha_transferencia' => $datos['fecha_transferencia'],
-            'referencia' => $datos['referencia'] ?? null,
-            'archivo' => $ruta,
-            'adeudo_ids' => $adeudos,
-        ]);
+        // El filtro de cargos al titular, el guardado del archivo y el alta del
+        // comprobante viven en el servicio: los comparten la web y la app.
+        $this->registro->registrar($matricula, $request->file('archivo'), $datos);
 
         return back()->with(
             'exito',
@@ -184,27 +170,5 @@ class ComprobantePagoController extends Controller
         $this->revisor->rechazar($comprobante, $request->user(), $datos['motivo']);
 
         return back()->with('advertencia', 'Comprobante rechazado. Se le avisa el motivo a quien lo subió.');
-    }
-
-    // ── Interno ────────────────────────────────────────────────────────────
-
-    /**
-     * Los cargos abiertos de ESTA matrícula entre los elegidos.
-     *
-     * @param  array<int, int>  $elegidos
-     * @return array<int, int>
-     */
-    private function adeudosDe(MatriculaOferta $matricula, array $elegidos): array
-    {
-        if ($elegidos === []) {
-            return [];
-        }
-
-        return Adeudo::query()
-            ->deMatricula($matricula->id)
-            ->porCobrar()
-            ->whereIn('id', $elegidos)
-            ->pluck('id')
-            ->all();
     }
 }
