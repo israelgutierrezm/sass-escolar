@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\AlcanceDelAlumno;
+use App\Http\Controllers\Concerns\OperaFinanzasEnLinea;
+use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Http\Controllers\Controller;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Services\EstadoCuenta;
+use App\Services\Finanzas\FinanzasParaApp;
+use App\Services\GestorSolicitudFactura;
 use App\Services\HistorialDelAlumno;
 use App\Services\Lms\CursosDelAlumno;
+use App\Services\Pagos\CobroEnLinea;
+use App\Services\Pagos\RegistroDeComprobante;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -31,17 +38,31 @@ use Illuminate\Support\Collection;
  *
  * ── La faceta la fija el middleware `api.faceta:alumno` ─────────────────────
  * De él depende que el `Gate::before` de los `can:` y el ámbito de
- * `EstadoCuenta` resuelvan como ALUMNO. Sin ese middleware, un permiso de
- * alumno concedido no tendría rol activo contra el que comprobarse.
+ * `EstadoCuenta` (y de `VeLaCarteraDelAlumno`) resuelvan como ALUMNO. Sin ese
+ * middleware, un permiso de alumno concedido no tendría rol activo contra el
+ * que comprobarse.
+ *
+ * ── Factura y pago, del mismo trait que la familia ──────────────────────────
+ * Solicitar/generar factura, pagar en línea y subir el comprobante viven en
+ * `OperaFinanzasEnLinea`, compartido con el portal de la familia —como la web,
+ * un solo controlador para los dos—. De quién es la cuenta lo cierra
+ * `VeLaCarteraDelAlumno`: para la faceta ALUMNO, sus PROPIAS matrículas.
  */
 class AlumnoApiController extends Controller
 {
+    use AcotaPorCampus;
     use AlcanceDelAlumno;
+    use OperaFinanzasEnLinea;
+    use VeLaCarteraDelAlumno;
 
     public function __construct(
         private readonly CursosDelAlumno $cursos,
         private readonly HistorialDelAlumno $historial,
         private readonly EstadoCuenta $estadoCuenta,
+        private readonly FinanzasParaApp $finanzasApp,
+        private readonly GestorSolicitudFactura $gestorFactura,
+        private readonly CobroEnLinea $cobro,
+        private readonly RegistroDeComprobante $registroComprobante,
     ) {}
 
     /** Sus materias, agrupadas por ciclo, con lo que le falta entregar. */
@@ -116,6 +137,11 @@ class AlumnoApiController extends Controller
 
         $elegida->load(['oferta.programaAcademico:id,nombre', 'oferta.campus:id,nombre', 'situacion:id,nombre']);
 
+        // El alumno ve su PROPIA cartera: no hay vínculo que gatear como en la
+        // familia. El modo de factura sale de sus permisos y del canal de la
+        // escuela; el bloque de pago, de las pasarelas encendidas.
+        $modo = $this->finanzasApp->facturaModo($peticion->user());
+
         return response()->json([
             'matriculas' => $this->matriculasComoLista($matriculas),
             'matricula' => [
@@ -128,6 +154,11 @@ class AlumnoApiController extends Controller
             ],
             // El mismo servicio que la pantalla de finanzas y el expediente.
             'cuenta' => $this->estadoCuenta->para($elegida),
+            // Factura (facturas, autoservicio, solicitudes) y cuentas para
+            // transferencia: el mismo armado que el portal de la familia.
+            ...$this->finanzasApp->facturaYCuentas($elegida, $modo !== null),
+            'factura_modo' => $modo,
+            'pago' => $this->finanzasApp->pago(),
         ]);
     }
 

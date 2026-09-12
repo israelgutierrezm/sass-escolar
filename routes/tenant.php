@@ -3982,6 +3982,21 @@ Route::middleware([
                 ->middleware('can:ver-historial-academico')->name('historial');
             Route::get('estado-cuenta', [AlumnoApiController::class, 'estadoCuenta'])
                 ->middleware('can:ver-adeudos')->name('estado-cuenta');
+
+            // Autoservicio de factura del alumno (mismo trait que la familia).
+            Route::post('facturas/{matricula}/solicitar', [AlumnoApiController::class, 'solicitarFactura'])
+                ->whereNumber('matricula')->middleware('can:solicitar-factura')->name('facturas.solicitar');
+            Route::post('facturas/{matricula}/generar', [AlumnoApiController::class, 'generarFactura'])
+                ->whereNumber('matricula')->middleware('can:generar-mi-factura')->name('facturas.generar');
+            Route::get('facturas/solicitudes/{solicitud}/cfdi/{tipo}', [AlumnoApiController::class, 'descargarCfdi'])
+                ->whereNumber('solicitud')->middleware('can:ver-adeudos')->name('facturas.cfdi');
+
+            // Pagar en línea su propia cuenta: iniciar el cobro (URL de checkout,
+            // el webhook concilia) o subir el comprobante de una transferencia.
+            Route::post('pagos/{matricula}/iniciar', [AlumnoApiController::class, 'iniciarPago'])
+                ->whereNumber('matricula')->middleware('can:ver-adeudos')->name('pagos.iniciar');
+            Route::post('pagos/{matricula}/comprobante', [AlumnoApiController::class, 'subirComprobante'])
+                ->whereNumber('matricula')->middleware('can:ver-adeudos')->name('pagos.comprobante');
         });
 
         /*
