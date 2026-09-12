@@ -130,6 +130,10 @@ try {
 
     $ctrl = app(PadreApiController::class);
 
+    echo PHP_EOL.'0. La ficha del hijo expone puede_citas'.PHP_EOL;
+    $ficha = json_decode($ctrl->hijo(comoFamilia($usuario), $hijo->fresh())->getContent(), true);
+    verificar('puede_citas es true con el permiso de la faceta', ($ficha['puede_citas'] ?? null) === true);
+
     echo PHP_EOL.'1. Leer: docentes con ventanas, modalidades y citas'.PHP_EOL;
 
     $api = json_decode($ctrl->citas(comoFamilia($usuario), $hijo->fresh())->getContent(), true);

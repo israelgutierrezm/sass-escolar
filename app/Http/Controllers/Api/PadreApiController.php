@@ -185,6 +185,9 @@ class PadreApiController extends Controller
             // Qué botón de factura ofrecer: 'generar', 'solicitar' o null. Es del
             // usuario, no de cada matrícula, así que va arriba —igual que la web—.
             'factura_modo' => $facturaModo,
+            // Si esta escuela le deja pedir citas con los docentes: la app decide
+            // si mostrar la entrada. El endpoint de citas lo vuelve a exigir.
+            'puede_citas' => $peticion->user()->can('solicitar-citas'),
             /*
              * Con qué se puede pagar en línea, atado al permiso financiero del
              * vínculo igual que los saldos: sin ver lo que se debe no hay por qué
