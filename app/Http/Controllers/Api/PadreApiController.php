@@ -15,6 +15,7 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\Sancion;
+use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\SolicitudFactura;
 use App\Models\Identidad\Autorizacion;
@@ -28,14 +29,22 @@ use App\Services\Familia\RespuestaAutorizacion;
 use App\Services\Finanzas\AutoservicioFactura;
 use App\Services\GestorSolicitudFactura;
 use App\Services\HistorialDelAlumno;
+use App\Services\Pagos\CobroEnLinea;
+use App\Services\Pagos\Pasarelas;
+use App\Services\Pagos\RegistroDeComprobante;
 use App\Services\Plataforma\ModulosDeLaEscuela;
 use App\Support\CatalogosSat;
+use App\Support\PasarelasCatalogo;
+use App\Support\UrlPublica;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * El portal de la FAMILIA para la app móvil.
@@ -51,9 +60,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * El NÚCLEO de lectura, como hizo el portal del alumno: la lista de hijos con su
  * estado, y por cada hijo lo académico, lo financiero y la conducta. Y los
  * flujos INTERACTIVOS que ya se portaron —confirmar autorizaciones, entregar
- * documentos y solicitar/generar factura—, cada uno sobre su servicio compartido
- * con la web. Los que faltan (pagar en línea, salida segura, citas) llegan en
- * rebanadas posteriores.
+ * documentos, solicitar/generar factura y pagar en línea (pasarela y
+ * comprobante de transferencia)—, cada uno sobre su servicio compartido con la
+ * web. Los que faltan (salida segura, citas) llegan en rebanadas posteriores.
  *
  * ── El alcance lo pone el VÍNCULO, no la URL ───────────────────────────────
  * Qué hijo es suyo lo decide `tutores_alumno` (la misma puerta que la web): un
@@ -83,6 +92,9 @@ class PadreApiController extends Controller
         private readonly EntregaDocumentos $documentos,
         private readonly AutoservicioFactura $autoservicioFactura,
         private readonly GestorSolicitudFactura $gestorFactura,
+        private readonly Pasarelas $pasarelas,
+        private readonly CobroEnLinea $cobro,
+        private readonly RegistroDeComprobante $registroComprobante,
     ) {}
 
     /** Los hijos vinculados, con su estado según lo que la escuela le dejó ver. */
@@ -163,6 +175,19 @@ class PadreApiController extends Controller
             // Qué botón de factura ofrecer: 'generar', 'solicitar' o null. Es del
             // usuario, no de cada matrícula, así que va arriba —igual que la web—.
             'factura_modo' => $facturaModo,
+            /*
+             * Con qué se puede pagar en línea, atado al permiso financiero del
+             * vínculo igual que los saldos: sin ver lo que se debe no hay por qué
+             * ver botones para pagarlo. Las pasarelas de la escuela, el abono
+             * mínimo y si se permite pagar todo de una vez —el servidor lo vuelve
+             * a exigir al cobrar—. Las cuentas para transferencia van por
+             * matrícula (dependen del programa) dentro de `finanzas`.
+             */
+            'pago' => $vinculo->puede_ver_finanzas ? [
+                'pasarelas' => $this->pasarelas->disponibles(),
+                'abono_minimo' => app(Ajustes::class)->entero(CatalogoAjustes::ABONO_MINIMO),
+                'pago_total' => app(Ajustes::class)->bool(CatalogoAjustes::PAGO_TOTAL),
+            ] : null,
             // La conducta va con el permiso de faceta —no con el vínculo, que
             // distingue académico de financiero pero no disciplina— y sólo si el
             // módulo está encendido.
@@ -320,6 +345,92 @@ class PadreApiController extends Controller
             ->first();
     }
 
+    // ── Pagar en línea ──────────────────────────────────────────────────────
+
+    /**
+     * Empieza un cobro en línea y devuelve a dónde mandar a quien paga.
+     *
+     * Reusa `CobroEnLinea::iniciar` —el mismo motor y las mismas guardas que la
+     * web— con las mismas dos URLs: el RETORNO lo abre el navegador de vuelta; el
+     * AVISO lo abre la pasarela desde internet (el webhook, que es lo único que
+     * cobra). La app abre la URL devuelta y luego relee el estado de cuenta: el
+     * webhook concilia aunque la app se cierre.
+     */
+    public function iniciarPago(Request $peticion, MatriculaOferta $matricula): JsonResponse
+    {
+        $this->exigirQuePuedaVerLaCuenta($peticion, $matricula);
+
+        $datos = $peticion->validate([
+            'pasarela' => ['required', 'string', 'max:30'],
+            'adeudo_ids' => ['required', 'array', 'min:1'],
+            'adeudo_ids.*' => ['integer'],
+            'metodo' => ['nullable', 'string', 'max:20'],
+            'importe' => ['nullable', 'numeric', 'min:0.01'],
+        ], [
+            'adeudo_ids.required' => 'Elige al menos un cargo para pagar.',
+        ]);
+
+        try {
+            $intencion = $this->cobro->iniciar(
+                $matricula,
+                $datos['pasarela'],
+                $datos['adeudo_ids'],
+                route('tenant.pagos.retorno'),
+                UrlPublica::paraAfuera(route('tenant.pagos.aviso', ['pasarela' => $datos['pasarela']])),
+                $datos['metodo'] ?? null,
+                isset($datos['importe']) ? (float) $datos['importe'] : null,
+            );
+        } catch (HttpException $e) {
+            // Un aviso para quien paga (falta elegir método, cargos, «pagar
+            // todo»…) ya trae su mensaje y su código; el manejador de /api lo da
+            // como JSON. Sin esta rama caería abajo y se culparía a la pasarela.
+            throw $e;
+        } catch (RuntimeException $e) {
+            // Falló algo de la escuela (credenciales, pasarela mal configurada):
+            // al registro el motivo, a quien paga que no es culpa suya.
+            Log::error('No se pudo abrir un cobro en línea desde la app.', [
+                'pasarela' => $datos['pasarela'],
+                'matricula' => $matricula->id,
+                'motivo' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'message' => 'No se pudo abrir el pago con '.PasarelasCatalogo::nombreDe($datos['pasarela'])
+                    .'. No es problema tuyo: avísale a la escuela para que lo revise.',
+            ], 422);
+        }
+
+        return response()->json(['url' => $intencion->url_pago]);
+    }
+
+    /**
+     * Sube el comprobante de una transferencia ya hecha (multipart). Nace
+     * PENDIENTE; la escuela lo valida y ahí se liquida el cargo. Misma
+     * autorización (cartera) y mismo servicio que la web.
+     */
+    public function subirComprobante(Request $peticion, MatriculaOferta $matricula): JsonResponse
+    {
+        $this->exigirQuePuedaVerLaCuenta($peticion, $matricula);
+
+        $datos = $peticion->validate([
+            'cuenta_bancaria_id' => ['nullable', 'integer'],
+            'monto' => ['required', 'numeric', 'min:0.01'],
+            'fecha_transferencia' => ['required', 'date', 'before_or_equal:today'],
+            'referencia' => ['nullable', 'string', 'max:100'],
+            'adeudo_ids' => ['nullable', 'array'],
+            'adeudo_ids.*' => ['integer'],
+            'archivo' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+        ], [
+            'fecha_transferencia.before_or_equal' => 'La fecha de la transferencia no puede ser futura.',
+            'archivo.mimes' => 'El comprobante tiene que ser una imagen o un PDF.',
+            'archivo.max' => 'El comprobante no puede pesar más de 5 MB.',
+        ]);
+
+        $this->registroComprobante->registrar($matricula, $peticion->file('archivo'), $datos);
+
+        return response()->json(['ok' => true]);
+    }
+
     /**
      * Lo académico de una matrícula, con las cifras del servicio compartido.
      *
@@ -377,6 +488,20 @@ class PadreApiController extends Controller
             'facturas' => $facturas,
             'factura_autoservicio' => $conAutoservicio ? $this->autoservicioFactura->datosParaSolicitar($m) : null,
             'solicitudes_factura' => $this->autoservicioFactura->solicitudesDe($m),
+            // Las cuentas para transferencia directa: las del programa de esta
+            // matrícula que pueden recibir. Copiar la CLABE es el otro camino de
+            // pago, con su comprobante.
+            'cuentas_bancarias' => CuentaBancaria::paraProgramaAcademico($m->oferta?->programa_academico_id)
+                ->filter(fn (CuentaBancaria $c) => $c->puedeRecibir())
+                ->map(fn (CuentaBancaria $c) => [
+                    'id' => $c->id,
+                    'nombre' => $c->nombre,
+                    'banco' => $c->banco,
+                    'titular' => $c->titular,
+                    'clabe' => $c->clabe,
+                    'numero_cuenta' => $c->numero_cuenta,
+                    'instrucciones' => $c->instrucciones,
+                ])->values()->all(),
         ];
     }
 

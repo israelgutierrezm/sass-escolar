@@ -4026,6 +4026,16 @@ Route::middleware([
                 ->whereNumber('matricula')->middleware('can:generar-mi-factura')->name('facturas.generar');
             Route::get('facturas/solicitudes/{solicitud}/cfdi/{tipo}', [PadreApiController::class, 'descargarCfdi'])
                 ->whereNumber('solicitud')->name('facturas.cfdi');
+
+            // Pagar en línea del hijo: iniciar el cobro con una pasarela (devuelve
+            // la URL de checkout; el webhook concilia) o subir el comprobante de
+            // una transferencia. `ver-mis-hijos` abre el portal; de quién es la
+            // cuenta —y el vínculo financiero— lo cierra el controlador con
+            // `VeLaCarteraDelAlumno`, la misma regla que la web.
+            Route::post('pagos/{matricula}/iniciar', [PadreApiController::class, 'iniciarPago'])
+                ->whereNumber('matricula')->middleware('can:ver-mis-hijos')->name('pagos.iniciar');
+            Route::post('pagos/{matricula}/comprobante', [PadreApiController::class, 'subirComprobante'])
+                ->whereNumber('matricula')->middleware('can:ver-mis-hijos')->name('pagos.comprobante');
         });
 
         /*
