@@ -4046,6 +4046,18 @@ Route::middleware([
                 ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('autorizados.agregar');
             Route::delete('hijos/{hijo}/autorizados/{autorizado}', [PadreApiController::class, 'quitarAutorizado'])
                 ->whereNumber(['hijo', 'autorizado'])->middleware('can:ver-mis-hijos')->name('autorizados.quitar');
+
+            // Citas con los docentes del hijo. Permiso propio `solicitar-citas`.
+            // El vínculo y las reglas del hueco viven en el servicio (hijo ajeno o
+            // docente que no le da clase → 404/403); cancelar exige ser parte.
+            Route::middleware('can:solicitar-citas')->group(function () {
+                Route::get('hijos/{hijo}/citas', [PadreApiController::class, 'citas'])
+                    ->whereNumber('hijo')->name('citas');
+                Route::post('hijos/{hijo}/citas', [PadreApiController::class, 'solicitarCita'])
+                    ->whereNumber('hijo')->name('citas.solicitar');
+                Route::post('citas/{cita}/cancelar', [PadreApiController::class, 'cancelarCita'])
+                    ->whereNumber('cita')->name('citas.cancelar');
+            });
         });
 
         /*

@@ -15,6 +15,8 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\Disciplina\Incidencia;
 use App\Models\Disciplina\Sancion;
+use App\Models\Familia\Cita;
+use App\Models\Familia\DisponibilidadCitaDocente;
 use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\SolicitudFactura;
@@ -27,6 +29,7 @@ use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
 use App\Services\Familia\AutorizadosParaRecoger;
 use App\Services\Familia\EntregaDocumentos;
+use App\Services\Familia\GestorDeCitas;
 use App\Services\Familia\PuedeRecoger;
 use App\Services\Familia\RespuestaAutorizacion;
 use App\Services\Finanzas\AutoservicioFactura;
@@ -63,9 +66,10 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * El NÚCLEO de lectura, como hizo el portal del alumno: la lista de hijos con su
  * estado, y por cada hijo lo académico, lo financiero y la conducta. Y los
  * flujos INTERACTIVOS que ya se portaron —confirmar autorizaciones, entregar
- * documentos, solicitar/generar factura, pagar en línea (pasarela y comprobante)
- * y la salida segura (autorizar/retirar quién recoge al hijo)—, cada uno sobre
- * su servicio compartido con la web. Lo que falta (citas) llega después.
+ * documentos, solicitar/generar factura, pagar en línea (pasarela y comprobante),
+ * la salida segura (quién recoge al hijo) y las citas con los docentes—, cada
+ * uno sobre su servicio compartido con la web. Con esto el portal de la familia
+ * queda completo en la app.
  *
  * ── El alcance lo pone el VÍNCULO, no la URL ───────────────────────────────
  * Qué hijo es suyo lo decide `tutores_alumno` (la misma puerta que la web): un
@@ -100,6 +104,7 @@ class PadreApiController extends Controller
         private readonly RegistroDeComprobante $registroComprobante,
         private readonly PuedeRecoger $puedeRecoger,
         private readonly AutorizadosParaRecoger $autorizadosRecoger,
+        private readonly GestorDeCitas $citasGestor,
     ) {}
 
     /** Los hijos vinculados, con su estado según lo que la escuela le dejó ver. */
@@ -398,6 +403,80 @@ class PadreApiController extends Controller
         AvisoParaElUsuario::si($autorizado->alumno_persona_id !== $hijo->id, 404, 'Ese autorizado no es de este alumno.');
 
         $this->autorizadosRecoger->quitar($autorizado);
+
+        return response()->json(['ok' => true]);
+    }
+
+    // ── Citas familia–docente ───────────────────────────────────────────────
+
+    /**
+     * Las citas del hijo: los docentes que le dan clase (con sus ventanas de
+     * atención), las modalidades y las citas ya pedidas con su estado. Del mismo
+     * servicio que el portal web. Un hijo ajeno → 404 (no confirma que exista).
+     */
+    public function citas(Request $peticion, Persona $hijo): JsonResponse
+    {
+        $tutorId = (int) $peticion->user()->persona_id;
+        AvisoParaElUsuario::aMenosQue($this->citasGestor->esHijoDe($tutorId, $hijo->id), 404, 'Ese alumno no está vinculado a tu cuenta.');
+
+        $docentes = $this->citasGestor->docentesDelAlumno($hijo->id);
+        $ventanas = $this->citasGestor->ventanasPorDocente(array_column($docentes, 'persona_id'));
+
+        return response()->json([
+            'docentes' => array_map(fn (array $d) => [...$d, 'ventanas' => $ventanas[$d['persona_id']] ?? []], $docentes),
+            'modalidades' => DisponibilidadCitaDocente::MODALIDADES,
+            'citas' => Cita::query()
+                ->where('alumno_persona_id', $hijo->id)
+                ->where('solicitante_persona_id', $tutorId)
+                ->with('docente:id,nombre,primer_apellido,segundo_apellido')
+                ->orderByDesc('inicio')->limit(100)->get()
+                ->map(fn (Cita $c) => [
+                    'id' => $c->id,
+                    'docente' => $c->docente?->nombreCompleto(),
+                    'inicio' => $c->inicio?->format('Y-m-d H:i'),
+                    'fin' => $c->fin?->format('H:i'),
+                    'modalidad' => $c->modalidad,
+                    'motivo' => $c->motivo,
+                    'lugar' => $c->lugar,
+                    'estado' => $c->estado,
+                    'respuesta' => $c->respuesta,
+                    'ya_paso' => $c->yaPaso(),
+                ])->values(),
+        ]);
+    }
+
+    /**
+     * La familia SOLICITA una cita en un hueco de una ventana del docente. Las
+     * guardas —el hijo es suyo, el docente le da clase, el hueco es válido, no en
+     * el pasado ni ya ocupado— viven en `GestorDeCitas`.
+     */
+    public function solicitarCita(Request $peticion, Persona $hijo): JsonResponse
+    {
+        $datos = $peticion->validate([
+            'disponibilidad_id' => ['required', 'integer'],
+            'fecha' => ['required', 'date_format:Y-m-d'],
+            'hora_inicio' => ['required', 'date_format:H:i'],
+            'motivo' => ['required', 'string', 'max:500'],
+        ]);
+
+        $this->citasGestor->solicitar(
+            (int) $peticion->user()->persona_id,
+            $hijo->id,
+            (int) $datos['disponibilidad_id'],
+            $datos['fecha'],
+            $datos['hora_inicio'],
+            $datos['motivo'],
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** La familia CANCELA una cita suya, con motivo (el servicio exige ser parte). */
+    public function cancelarCita(Request $peticion, Cita $cita): JsonResponse
+    {
+        $datos = $peticion->validate(['respuesta' => ['required', 'string', 'max:500']]);
+
+        $this->citasGestor->cancelar($cita, (int) $peticion->user()->persona_id, $datos['respuesta']);
 
         return response()->json(['ok' => true]);
     }
