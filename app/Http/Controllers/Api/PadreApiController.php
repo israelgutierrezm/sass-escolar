@@ -19,12 +19,15 @@ use App\Models\Finanzas\CuentaBancaria;
 use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\SolicitudFactura;
 use App\Models\Identidad\Autorizacion;
+use App\Models\Identidad\AutorizadoRecoger;
 use App\Models\Identidad\Parentesco;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\TutorAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\EstadoDelAlumno;
+use App\Services\Familia\AutorizadosParaRecoger;
 use App\Services\Familia\EntregaDocumentos;
+use App\Services\Familia\PuedeRecoger;
 use App\Services\Familia\RespuestaAutorizacion;
 use App\Services\Finanzas\AutoservicioFactura;
 use App\Services\GestorSolicitudFactura;
@@ -60,9 +63,9 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  * El NÚCLEO de lectura, como hizo el portal del alumno: la lista de hijos con su
  * estado, y por cada hijo lo académico, lo financiero y la conducta. Y los
  * flujos INTERACTIVOS que ya se portaron —confirmar autorizaciones, entregar
- * documentos, solicitar/generar factura y pagar en línea (pasarela y
- * comprobante de transferencia)—, cada uno sobre su servicio compartido con la
- * web. Los que faltan (salida segura, citas) llegan en rebanadas posteriores.
+ * documentos, solicitar/generar factura, pagar en línea (pasarela y comprobante)
+ * y la salida segura (autorizar/retirar quién recoge al hijo)—, cada uno sobre
+ * su servicio compartido con la web. Lo que falta (citas) llega después.
  *
  * ── El alcance lo pone el VÍNCULO, no la URL ───────────────────────────────
  * Qué hijo es suyo lo decide `tutores_alumno` (la misma puerta que la web): un
@@ -95,6 +98,8 @@ class PadreApiController extends Controller
         private readonly Pasarelas $pasarelas,
         private readonly CobroEnLinea $cobro,
         private readonly RegistroDeComprobante $registroComprobante,
+        private readonly PuedeRecoger $puedeRecoger,
+        private readonly AutorizadosParaRecoger $autorizadosRecoger,
     ) {}
 
     /** Los hijos vinculados, con su estado según lo que la escuela le dejó ver. */
@@ -332,6 +337,67 @@ class PadreApiController extends Controller
 
         $error = $this->documentos->eliminar($documento);
         AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true]);
+    }
+
+    // ── Salida segura: quién puede recoger ──────────────────────────────────
+
+    /**
+     * Quién puede recoger al hijo: la lista EFECTIVA (tutores + terceros
+     * vigentes, del servicio compartido), los terceros que la familia puede
+     * editar y el catálogo de parentescos para el alta. No se gatea por lo
+     * financiero ni lo académico: cualquier tutor del hijo gestiona sus recogidas.
+     */
+    public function recogen(Request $peticion, Persona $hijo): JsonResponse
+    {
+        AvisoParaElUsuario::si($this->vinculoCon($hijo, $peticion->user()) === null, 403, 'Este alumno no está vinculado a tu cuenta.');
+
+        return response()->json([
+            'efectiva' => $this->puedeRecoger->listaEfectiva($hijo->id),
+            'terceros' => AutorizadoRecoger::query()
+                ->where('alumno_persona_id', $hijo->id)->autoriza()
+                ->with('parentesco:id,nombre')->orderBy('nombre')->get()
+                ->map(fn (AutorizadoRecoger $a) => [
+                    'id' => $a->id,
+                    'nombre' => $a->nombre,
+                    'identificacion' => $a->identificacion,
+                    'parentesco' => $a->parentesco?->nombre,
+                    'vigencia_hasta' => $a->vigencia_hasta?->toDateString(),
+                    'vigente' => $a->vigente(),
+                ])->values(),
+            'parentescos' => Parentesco::query()->orderBy('nombre')->get(['id', 'nombre']),
+        ]);
+    }
+
+    /** La familia autoriza a un tercero a recoger a su hijo. */
+    public function agregarAutorizado(Request $peticion, Persona $hijo): JsonResponse
+    {
+        AvisoParaElUsuario::si($this->vinculoCon($hijo, $peticion->user()) === null, 403, 'Este alumno no está vinculado a tu cuenta.');
+
+        $datos = $peticion->validate([
+            'nombre' => ['required', 'string', 'max:180'],
+            'identificacion' => ['nullable', 'string', 'max:120'],
+            'parentesco_id' => ['nullable', 'integer', 'exists:parentescos,id'],
+            'vigencia_desde' => ['nullable', 'date'],
+            'vigencia_hasta' => ['nullable', 'date', 'after_or_equal:vigencia_desde'],
+        ]);
+
+        $this->autorizadosRecoger->agregar($hijo, $datos);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * La familia retira a un tercero SUYO. El servicio rehúsa un bloqueo de
+     * custodia (404); aquí además se comprueba que el autorizado sea de ESTE hijo.
+     */
+    public function quitarAutorizado(Request $peticion, Persona $hijo, AutorizadoRecoger $autorizado): JsonResponse
+    {
+        AvisoParaElUsuario::si($this->vinculoCon($hijo, $peticion->user()) === null, 403, 'Este alumno no está vinculado a tu cuenta.');
+        AvisoParaElUsuario::si($autorizado->alumno_persona_id !== $hijo->id, 404, 'Ese autorizado no es de este alumno.');
+
+        $this->autorizadosRecoger->quitar($autorizado);
 
         return response()->json(['ok' => true]);
     }

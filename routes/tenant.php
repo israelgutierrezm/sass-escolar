@@ -4036,6 +4036,16 @@ Route::middleware([
                 ->whereNumber('matricula')->middleware('can:ver-mis-hijos')->name('pagos.iniciar');
             Route::post('pagos/{matricula}/comprobante', [PadreApiController::class, 'subirComprobante'])
                 ->whereNumber('matricula')->middleware('can:ver-mis-hijos')->name('pagos.comprobante');
+
+            // Salida segura: quién puede recoger al hijo. La familia lista, agrega
+            // un tercero y lo retira —nunca un bloqueo de custodia, que es de la
+            // escuela—. El vínculo lo cierra el controlador (hijo ajeno → 403).
+            Route::get('hijos/{hijo}/autorizados', [PadreApiController::class, 'recogen'])
+                ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('autorizados');
+            Route::post('hijos/{hijo}/autorizados', [PadreApiController::class, 'agregarAutorizado'])
+                ->whereNumber('hijo')->middleware('can:ver-mis-hijos')->name('autorizados.agregar');
+            Route::delete('hijos/{hijo}/autorizados/{autorizado}', [PadreApiController::class, 'quitarAutorizado'])
+                ->whereNumber(['hijo', 'autorizado'])->middleware('can:ver-mis-hijos')->name('autorizados.quitar');
         });
 
         /*
