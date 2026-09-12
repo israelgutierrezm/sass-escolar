@@ -244,11 +244,23 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   arregló antes en la rebanada de factura. Pruebas:
   `prueba-api-pagos-familia.php` (17 verif, 3 mut) + HTTP real + 4 Flutter.
 
-**Con esto la app de la FAMILIA queda completa en sus flujos de lectura y
-escritura**: hijos, autorizaciones, documentos, factura y pago en línea. Lo que
-podría venir después son flujos aún no portados de otras facetas o de la propia
-familia que la web tiene fuera del portal financiero/académico —salida segura y
-citas familia–docente—, cada uno con su rebanada.
+- **Salida segura** (familia) ✅. Quién puede recoger al hijo. El alta
+  (`permitido=true`, con el token del QR que pone el modelo) y la baja de un
+  tercero salen a un servicio compartido `App\Services\Familia\AutorizadosParaRecoger`
+  (la web —`SalidaSeguraController`— delega en él); la lista efectiva es la de
+  `PuedeRecoger`, ya compartida. **La familia SÓLO toca sus terceros
+  `permitido=true`**: un bloqueo de custodia (de la escuela) responde 404 y no se
+  borra, y un autorizado de otro hijo, 404. `GET/POST familia/hijos/{hijo}/autorizados`
+  y `DELETE …/autorizados/{autorizado}` bajo `can:ver-mis-hijos`; el vínculo
+  cierra a quién (hijo ajeno → 403), sin gatear por lo financiero ni lo académico.
+  Flutter: `PantallaAutorizados` (lista efectiva + terceros con quitar + alta
+  inline), alcanzada desde la ficha del hijo. **La descarga/exhibición del QR de
+  un tercero queda para después** (necesitaría un render de QR). Pruebas:
+  `prueba-api-salida-segura-familia.php` (13 verif, 4 mut) + HTTP real + 4 Flutter.
+
+Lo que queda: **citas familia–docente** (pedir/confirmar reunión), la última del
+portal de la familia; y portar flujos de otras facetas (docente/alumno) si se
+decide.
 
 ## Reglas transversales
 
