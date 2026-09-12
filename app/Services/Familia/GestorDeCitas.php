@@ -103,6 +103,36 @@ class GestorDeCitas
             ->get();
     }
 
+    /**
+     * Las ventanas de varios docentes, agrupadas por docente y ya mapeadas —los
+     * huecos que la familia elige para pedir cita—. En el servicio para que la
+     * web y la app ofrezcan lo mismo, en una sola consulta.
+     *
+     * @param  array<int, int>  $docenteIds
+     * @return array<int, array<int, array<string, mixed>>>  persona_id => ventanas
+     */
+    public function ventanasPorDocente(array $docenteIds): array
+    {
+        if ($docenteIds === []) {
+            return [];
+        }
+
+        return DisponibilidadCitaDocente::query()
+            ->whereIn('persona_id', $docenteIds)
+            ->orderBy('dia_semana')->orderBy('hora_inicio')->get()
+            ->groupBy('persona_id')
+            ->map(fn (Collection $g) => $g->map(fn (DisponibilidadCitaDocente $d) => [
+                'id' => $d->id,
+                'dia_semana' => $d->dia_semana,
+                'hora_inicio' => substr((string) $d->hora_inicio, 0, 5),
+                'hora_fin' => substr((string) $d->hora_fin, 0, 5),
+                'modalidad' => $d->modalidad,
+                'duracion_min' => $d->duracion_min,
+                'lugar' => $d->lugar,
+            ])->values()->all())
+            ->all();
+    }
+
     // ── Transiciones ────────────────────────────────────────────────────────
 
     /**

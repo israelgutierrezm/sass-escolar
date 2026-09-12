@@ -11,7 +11,6 @@ use App\Models\Identidad\Persona;
 use App\Services\Familia\GestorDeCitas;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -33,11 +32,11 @@ class CitaFamiliaController extends Controller
         AvisoParaElUsuario::aMenosQue($this->gestor->esHijoDe($tutorId, $hijo->id), 404, 'Ese alumno no está vinculado a tu cuenta.');
 
         $docentes = $this->gestor->docentesDelAlumno($hijo->id);
-        $ventanas = $this->ventanasPorDocente(collect($docentes)->pluck('persona_id')->all());
+        $ventanas = $this->gestor->ventanasPorDocente(array_column($docentes, 'persona_id'));
 
         return Inertia::render('Padre/Citas', [
             'hijo' => ['id' => $hijo->id, 'nombre' => $hijo->nombreCompleto()],
-            'docentes' => array_map(fn (array $d) => [...$d, 'ventanas' => $ventanas->get($d['persona_id'], [])], $docentes),
+            'docentes' => array_map(fn (array $d) => [...$d, 'ventanas' => $ventanas[$d['persona_id']] ?? []], $docentes),
             'modalidades' => DisponibilidadCitaDocente::MODALIDADES,
             'citas' => Cita::query()
                 ->where('alumno_persona_id', $hijo->id)
@@ -87,32 +86,5 @@ class CitaFamiliaController extends Controller
         $this->gestor->cancelar($cita, (int) $peticion->user()->persona_id, $datos['respuesta']);
 
         return back(303)->with('exito', 'Cita cancelada.');
-    }
-
-    /**
-     * Las ventanas de varios docentes en una sola consulta, agrupadas.
-     *
-     * @param  array<int, int>  $docenteIds
-     * @return Collection<int, array<int, array<string, mixed>>>
-     */
-    private function ventanasPorDocente(array $docenteIds): Collection
-    {
-        if ($docenteIds === []) {
-            return collect();
-        }
-
-        return DisponibilidadCitaDocente::query()
-            ->whereIn('persona_id', $docenteIds)
-            ->orderBy('dia_semana')->orderBy('hora_inicio')->get()
-            ->groupBy('persona_id')
-            ->map(fn (Collection $g) => $g->map(fn (DisponibilidadCitaDocente $d) => [
-                'id' => $d->id,
-                'dia_semana' => $d->dia_semana,
-                'hora_inicio' => substr((string) $d->hora_inicio, 0, 5),
-                'hora_fin' => substr((string) $d->hora_fin, 0, 5),
-                'modalidad' => $d->modalidad,
-                'duracion_min' => $d->duracion_min,
-                'lugar' => $d->lugar,
-            ])->values()->all());
     }
 }
