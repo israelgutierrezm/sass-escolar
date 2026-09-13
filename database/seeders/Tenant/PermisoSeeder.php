@@ -57,6 +57,10 @@ class PermisoSeeder extends Seeder
             'ver-mis-materias', 'editar-mi-expediente', 'editar-mi-disponibilidad',
             'ver-historial-academico', 'pasar-lista', 'capturar-calificaciones', 'asentar-acta',
             'levantar-incidencia',
+            // Responde las solicitudes de cita de las familias y declara sus
+            // horarios de atención. Estaba declarado en el catálogo pero no se
+            // asignaba a nadie: /docencia/citas quedaba inalcanzable por defecto.
+            'gestionar-mis-citas',
             // Detrás del interruptor de la escuela, que nace APAGADO: tener el
             // permiso no basta.
             'ver-alertas-de-mis-grupos',
@@ -91,7 +95,10 @@ class PermisoSeeder extends Seeder
         // Ahora lo hay, en `tutorias`, y su portal resuelve el alcance por
         // pertenencia igual que el del padre y el del docente.
         'tutor_educativo' => ['ver-mis-tutorados', 'ver-historial-academico'],
-        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor', 'ver-conducta-hijo', 'solicitar-factura', 'generar-mi-factura'],
+        // `solicitar-citas`: pide y cancela citas con los docentes del hijo.
+        // Mismo caso que `gestionar-mis-citas` del docente —declarado y sin
+        // asignar—: sin él, /mis-hijos/{hijo}/citas respondía 403.
+        'padre_familia' => ['ver-mis-hijos', 'ver-historial-academico', 'ver-adeudos', 'editar-mi-expediente-tutor', 'ver-conducta-hijo', 'solicitar-citas', 'solicitar-factura', 'generar-mi-factura'],
         // El supervisor externo entra a SU portal y valida lo de SUS
         // expedientes. Reusa `aprobar-horas-formativas` y
         // `revisar-informes-formativos` —la misma acción que el administrativo,
