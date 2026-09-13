@@ -214,6 +214,18 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   `can:` en toda escuela, web incluida—; se asignaron a sus facetas. Pruebas:
   `prueba-api-docente-citas.php` (14, cinco mutaciones) + HTTP real + 5 Flutter.
 
+- **Mi expediente** (alumno) ✅. El alumno adulto sube sus propios documentos
+  desde la app (hasta ahora sólo la familia, por el hijo menor). La lógica de
+  `ExpedienteAlumnoController` (la web) se extrajo a
+  `App\Services\ControlEscolar\DocumentosDelAlumno` —distinto de
+  `EntregaDocumentos`, que es del tutor por su hijo—: listar los tipos del
+  ÁMBITO ALUMNO con lo subido, subir (reinicia la revisión), reemplazar y quitar,
+  con «lo entregó tu tutor» cuando lo subió otra persona. `GET/POST/DELETE
+  /api/v1/alumno/documentos[/{id}]` bajo `can:editar-mi-expediente-alumno` (un
+  tipo de otro ámbito → 422, ajeno → 404, aceptado → 422). Flutter:
+  `PantallaDocumentosAlumno` enlazada desde el panel. Pruebas:
+  `prueba-api-alumno-documentos.php` (12, seis mutaciones) + HTTP real + 5 Flutter.
+
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
   (la web delega en él): listar, conceder/negar (mientras el plazo siga abierto)
