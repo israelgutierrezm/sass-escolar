@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Admisiones\Alumno;
-use App\Models\Admisiones\DocumentoRequerido;
-use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\Identidad\Usuario;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
+use App\Services\ControlEscolar\DocumentosDelAlumno;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -49,7 +48,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class ExpedienteAlumnoController extends Controller
 {
-    private const CARPETA = 'alumnos';
+    public function __construct(private readonly DocumentosDelAlumno $documentos) {}
 
     public function show(Request $request): Response
     {
@@ -57,6 +56,7 @@ class ExpedienteAlumnoController extends Controller
         $alumno->load(['persona', 'situacion:id,nombre', 'matriculas.oferta.programaAcademico:id,nombre', 'matriculas.oferta.campus:id,nombre']);
 
         $persona = $alumno->persona;
+        $papeles = $this->documentos->datos($alumno->persona_id);
 
         return Inertia::render('MiExpediente/Index', [
             'persona' => [
@@ -85,46 +85,10 @@ class ExpedienteAlumnoController extends Controller
                 'campus' => $m->oferta?->campus?->nombre,
             ])->values(),
             'situacion' => $alumno->situacion?->nombre,
-            'documentos' => DocumentoAlumno::query()
-                ->with(['documento:id,nombre', 'estado:id,clave,nombre', 'registro.persona'])
-                ->where('persona_id', $alumno->persona_id)
-                ->get()
-                ->map(fn (DocumentoAlumno $d) => [
-                    'id' => $d->id,
-                    'documento_id' => $d->documento_id,
-                    'documento' => $d->documento?->nombre,
-                    'descripcion' => $d->descripcion,
-                    'estado' => $d->estado?->nombre,
-                    'estado_clave' => $d->estado?->clave,
-                    'vigencia' => $d->vigencia?->toDateString(),
-                    'vencido' => $d->estaVencido(),
-                    'observaciones' => $d->observaciones,
-                    /*
-                     * Quién lo entregó, y sólo cuando NO fue él.
-                     *
-                     * Desde que el tutor puede entregar por su hijo menor,
-                     * el expediente del alumno puede tener archivos que él no
-                     * subió. Sin decirlo, aparecería un documento que no
-                     * recuerda haber cargado y no sabría si es suyo. Poner
-                     * «lo subiste tú» en los demás sería ruido en todos los
-                     * renglones para señalar la excepción.
-                     */
-                    'entregado_por' => $d->created_by !== null && $d->registro?->persona_id !== $alumno->persona_id
-                        ? $d->registro?->persona?->nombreCompleto()
-                        : null,
-                ]),
-            // Solo lo que la escuela pide a los ALUMNOS, no el catálogo entero:
-            // ofrecerle el del aspirante le pediría cosas que ya entregó al
-            // inscribirse.
-            'tiposDocumento' => DocumentoRequerido::query()
-                ->delAmbito(DocumentoRequerido::AMBITO_ALUMNO)
-                ->orderBy('nombre')
-                ->get(['id', 'nombre', 'obligatorio'])
-                ->map(fn (DocumentoRequerido $d) => [
-                    'id' => $d->id,
-                    'nombre' => $d->nombre,
-                    'obligatorio' => (bool) $d->obligatorio,
-                ]),
+            // Los papeles del expediente (con «lo entregó tu tutor» cuando aplica)
+            // y el catálogo del ÁMBITO ALUMNO, del servicio compartido con la app.
+            'documentos' => $papeles['documentos'],
+            'tiposDocumento' => $papeles['tipos'],
             'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
             'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
         ]);
@@ -173,41 +137,20 @@ class ExpedienteAlumnoController extends Controller
             'vigencia.after' => 'Un documento que ya venció no sirve como comprobante.',
         ]);
 
-        $anterior = DocumentoAlumno::query()
-            ->where('persona_id', $alumno->persona_id)
-            ->where('documento_id', $datos['documento_id'])
-            ->first();
-
-        $ruta = $request->file('archivo')->store(
-            sprintf('%s/%d', self::CARPETA, $alumno->persona_id),
-            'local',
+        $this->documentos->subir(
+            $alumno->persona_id,
+            (int) $datos['documento_id'],
+            $request->file('archivo'),
+            $datos['descripcion'] ?? null,
+            $datos['vigencia'] ?? null,
         );
-
-        DocumentoAlumno::updateOrCreate(
-            ['persona_id' => $alumno->persona_id, 'documento_id' => $datos['documento_id']],
-            [
-                'url' => $ruta,
-                'descripcion' => $datos['descripcion'] ?? null,
-                'vigencia' => $datos['vigencia'] ?? null,
-                // Re-subir reinicia la revisión: el archivo cambió, así que el
-                // visto bueno anterior ya no dice nada del nuevo.
-                'estado_documento_id' => EstadoDocumento::query()->where('clave', 'pendiente')->value('id'),
-                'observaciones' => null,
-            ],
-        );
-
-        // El archivo viejo se borra del disco: se reemplazó, y guardarlo solo
-        // acumula datos personales que ya nadie va a consultar.
-        if ($anterior !== null && $anterior->url !== $ruta) {
-            Storage::disk('local')->delete($anterior->url);
-        }
 
         return back()->with('exito', 'Documento cargado. Queda pendiente de revisión.');
     }
 
     public function descargar(Request $request, DocumentoAlumno $documento): StreamedResponse
     {
-        $this->exigirMio($request, $documento);
+        $this->documentos->exigirDelAlumno($this->miAlumno($request)->persona_id, $documento);
 
         abort_unless(Storage::disk('local')->exists($documento->url), 404);
 
@@ -216,22 +159,12 @@ class ExpedienteAlumnoController extends Controller
 
     public function eliminar(Request $request, DocumentoAlumno $documento): RedirectResponse
     {
-        $this->exigirMio($request, $documento);
+        $this->documentos->exigirDelAlumno($this->miAlumno($request)->persona_id, $documento);
 
-        /*
-         * Lo aceptado no se borra desde aquí.
-         *
-         * Es la constancia de un trámite ya cerrado: si el alumno pudiera
-         * quitarla, el expediente que control escolar dio por bueno cambiaría a
-         * sus espaldas. Para corregir algo aprobado se re-sube, y eso vuelve a
-         * ponerlo en revisión.
-         */
-        if ($documento->estado?->clave === 'aceptado') {
-            return back()->with('error', 'Ese documento ya fue aceptado. Si cambió, súbelo otra vez.');
+        $error = $this->documentos->eliminar($documento);
+        if ($error !== null) {
+            return back()->with('error', $error);
         }
-
-        Storage::disk('local')->delete($documento->url);
-        $documento->delete();
 
         return back()->with('exito', 'Documento eliminado.');
     }
@@ -251,15 +184,5 @@ class ExpedienteAlumnoController extends Controller
         }
 
         return $alumno;
-    }
-
-    /** Que el documento sea suyo: la ruta lleva id y sin esto se leería el ajeno. */
-    private function exigirMio(Request $request, DocumentoAlumno $documento): void
-    {
-        $alumno = $this->miAlumno($request);
-
-        if ((int) $documento->persona_id !== (int) $alumno->persona_id) {
-            throw new AccessDeniedHttpException('Ese documento no es tuyo.');
-        }
     }
 }
