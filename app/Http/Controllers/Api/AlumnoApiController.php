@@ -8,9 +8,13 @@ use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Http\Controllers\Concerns\OperaFinanzasEnLinea;
 use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
+use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Controller;
+use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
+use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Services\ControlEscolar\DocumentosDelAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\Finanzas\FinanzasParaApp;
 use App\Services\GestorSolicitudFactura;
@@ -63,6 +67,7 @@ class AlumnoApiController extends Controller
         private readonly GestorSolicitudFactura $gestorFactura,
         private readonly CobroEnLinea $cobro,
         private readonly RegistroDeComprobante $registroComprobante,
+        private readonly DocumentosDelAlumno $documentosAlumno,
     ) {}
 
     /** Sus materias, agrupadas por ciclo, con lo que le falta entregar. */
@@ -160,6 +165,79 @@ class AlumnoApiController extends Controller
             'factura_modo' => $modo,
             'pago' => $this->finanzasApp->pago(),
         ]);
+    }
+
+    // ── Mi expediente: los documentos que la escuela me pide ────────────────
+
+    /**
+     * Los comprobantes de MI expediente y el catálogo del ámbito alumno, del
+     * servicio compartido con la web (`DocumentosDelAlumno`). Si el tutor entregó
+     * alguno por mí, viaja «lo entregó …».
+     */
+    public function documentos(Request $peticion): JsonResponse
+    {
+        return response()->json($this->documentosAlumno->datos($this->personaDe($peticion)));
+    }
+
+    /**
+     * Sube (o reemplaza) un comprobante mío. Multipart: documento_id + archivo.
+     * El tipo debe ser del ÁMBITO ALUMNO. Re-subir reinicia la revisión.
+     */
+    public function subirDocumento(Request $peticion): JsonResponse
+    {
+        $personaId = $this->personaDe($peticion);
+
+        $datos = $peticion->validate([
+            'documento_id' => [
+                'required',
+                'integer',
+                function (string $atributo, mixed $valor, callable $falla) {
+                    $delAmbito = DocumentoRequerido::query()
+                        ->delAmbito(DocumentoRequerido::AMBITO_ALUMNO)
+                        ->whereKey($valor)
+                        ->exists();
+
+                    if (! $delAmbito) {
+                        $falla('Ese documento no es de los que la escuela te pide.');
+                    }
+                },
+            ],
+            'archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'descripcion' => ['nullable', 'string', 'max:100'],
+            'vigencia' => ['nullable', 'date', 'after:today'],
+        ], [
+            'archivo.max' => 'El archivo no puede pasar de 5 MB.',
+            'archivo.mimes' => 'Solo se aceptan PDF o imágenes.',
+            'vigencia.after' => 'Un documento que ya venció no sirve como comprobante.',
+        ]);
+
+        $this->documentosAlumno->subir(
+            $personaId,
+            (int) $datos['documento_id'],
+            $peticion->file('archivo'),
+            $datos['descripcion'] ?? null,
+            $datos['vigencia'] ?? null,
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Retira un comprobante mío (lo aceptado no se retira desde aquí). */
+    public function eliminarDocumento(Request $peticion, DocumentoAlumno $documento): JsonResponse
+    {
+        $this->documentosAlumno->exigirDelAlumno($this->personaDe($peticion), $documento);
+
+        $error = $this->documentosAlumno->eliminar($documento);
+        AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** La persona autenticada. Sin ella no hay expediente que mostrar. */
+    private function personaDe(Request $peticion): int
+    {
+        return (int) ($peticion->user()->persona_id
+            ?? AvisoParaElUsuario::lanzar(403, 'Tu cuenta no está ligada a una persona.'));
     }
 
     /**

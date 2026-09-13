@@ -3997,6 +3997,17 @@ Route::middleware([
                 ->whereNumber('matricula')->middleware('can:ver-adeudos')->name('pagos.iniciar');
             Route::post('pagos/{matricula}/comprobante', [AlumnoApiController::class, 'subirComprobante'])
                 ->whereNumber('matricula')->middleware('can:ver-adeudos')->name('pagos.comprobante');
+
+            // Mi expediente: los documentos que la escuela me pide, subir/reemplazar
+            // y retirar (lo aceptado no se retira desde aquí). Mismo permiso que la
+            // web (`editar-mi-expediente-alumno`); de quién es cada documento lo
+            // cierra el controlador con el servicio compartido.
+            Route::get('documentos', [AlumnoApiController::class, 'documentos'])
+                ->middleware('can:editar-mi-expediente-alumno')->name('documentos');
+            Route::post('documentos', [AlumnoApiController::class, 'subirDocumento'])
+                ->middleware('can:editar-mi-expediente-alumno')->name('documentos.subir');
+            Route::delete('documentos/{documento}', [AlumnoApiController::class, 'eliminarDocumento'])
+                ->whereNumber('documento')->middleware('can:editar-mi-expediente-alumno')->name('documentos.eliminar');
         });
 
         /*
