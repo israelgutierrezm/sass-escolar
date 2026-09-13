@@ -239,8 +239,21 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   403). Flutter: `PantallaActividad` (instrucciones, la entrega con su
   calificación/retro/archivos, el formulario con adjuntos, y el botón de
   lectura), abierta al tocar una actividad en la pantalla de materia. Pruebas:
-  `prueba-api-alumno-entrega.php` (13, siete mutaciones) + 4 Flutter. **Falta del
-  LMS: calificar (docente), exámenes y foros.**
+  `prueba-api-alumno-entrega.php` (13, siete mutaciones) + 4 Flutter.
+
+- **Aula: calificar entregas** (docente) ✅. Cierra el ciclo entregar↔calificar.
+  La escritura directa (nota+retro, estado CALIFICADA, recálculo del componente)
+  salió a `App\Services\Lms\CalificacionDeEntrega` —ActividadController delega—;
+  la de rúbrica ya tenía `CalificadorPorRubrica`. `GET
+  /api/v1/docente/materias/{ag}/entregas` (por actividad, las entregas con quién/
+  qué/nota y cuántas por calificar) y `PUT /api/v1/docente/entregas/{e}/calificar`
+  (directa, o por criterios si la actividad usa rúbrica —se ramifica por la
+  ACTIVIDAD, no por la petición—). Alcance por asignación: entrega ajena → 403;
+  nota fuera de escala → 422. Flutter: `PantallaEntregasDocente` (actividades →
+  entregas → diálogo de nota+retro) desde el detalle de materia; **las de rúbrica
+  se califican en la web** (la nota sale de los niveles, no se teclea — su UI
+  queda para después). Pruebas: `prueba-api-docente-calificar.php` (8, cinco
+  mutaciones) + 3 Flutter. **Falta del LMS: exámenes y foros.**
 
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
