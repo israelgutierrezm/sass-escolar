@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\EsquemaEvaluacion;
 use App\Models\Academico\PlanEstudio;
+use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\CalificacionComponente;
+use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Identidad\Usuario;
 use App\Services\AsentadorActa;
@@ -16,6 +19,7 @@ use App\Services\Asistencia\PaseDeLista;
 use App\Services\CalculadoraCalificacion;
 use App\Services\CalendarioCaptura;
 use App\Services\CapturaDeCalificaciones;
+use App\Services\Docencia\DocumentosDelDocente;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -48,6 +52,7 @@ class DocenteApiController extends Controller
         private readonly CalculadoraCalificacion $calculadora,
         private readonly CalendarioCaptura $calendario,
         private readonly CapturaDeCalificaciones $captura,
+        private readonly DocumentosDelDocente $documentos,
     ) {}
 
     /** Las materias que imparte, con su grupo, horario y cuántos alumnos. */
@@ -297,6 +302,73 @@ class DocenteApiController extends Controller
         );
 
         return response()->json(['guardadas' => $guardadas, 'rechazados' => $rechazados]);
+    }
+
+    // ── Mi expediente: los documentos que la escuela me pide ────────────────
+
+    /**
+     * Los comprobantes de MI expediente y el catálogo del ámbito docente, del
+     * servicio compartido con la web (`DocumentosDelDocente`): qué papeles pide
+     * la escuela y cuáles ya subí, con su estado de revisión.
+     */
+    public function documentos(Request $peticion): JsonResponse
+    {
+        return response()->json($this->documentos->datos($this->personaId($peticion)));
+    }
+
+    /**
+     * Sube (o reemplaza) un comprobante mío. Multipart: documento_id + archivo.
+     * El tipo tiene que ser del ÁMBITO DOCENTE —el id de un documento de otro
+     * ámbito no debe acabar en mi expediente—. Re-subir reinicia la revisión.
+     */
+    public function subirDocumento(Request $peticion): JsonResponse
+    {
+        $personaId = $this->personaId($peticion);
+
+        $datos = $peticion->validate([
+            'documento_id' => [
+                'required',
+                'integer',
+                function (string $atributo, mixed $valor, callable $falla) {
+                    $delAmbito = DocumentoRequerido::query()
+                        ->delAmbito(DocumentoRequerido::AMBITO_DOCENTE)
+                        ->whereKey($valor)
+                        ->exists();
+
+                    if (! $delAmbito) {
+                        $falla('Ese documento no es de los que la escuela te pide.');
+                    }
+                },
+            ],
+            'archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'descripcion' => ['nullable', 'string', 'max:100'],
+            'vigencia' => ['nullable', 'date', 'after:today'],
+        ], [
+            'archivo.max' => 'El archivo no puede pasar de 5 MB.',
+            'archivo.mimes' => 'Solo se aceptan PDF o imágenes.',
+            'vigencia.after' => 'Un documento que ya venció no sirve como comprobante.',
+        ]);
+
+        $this->documentos->subir(
+            $personaId,
+            (int) $datos['documento_id'],
+            $peticion->file('archivo'),
+            $datos['descripcion'] ?? null,
+            $datos['vigencia'] ?? null,
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Retira un comprobante mío (lo aceptado no se retira desde aquí). */
+    public function eliminarDocumento(Request $peticion, DocumentoDocente $documento): JsonResponse
+    {
+        $this->documentos->exigirDelDocente($this->personaId($peticion), $documento);
+
+        $error = $this->documentos->eliminar($documento);
+        AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true]);
     }
 
     /**

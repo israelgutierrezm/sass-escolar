@@ -4102,6 +4102,17 @@ Route::middleware([
                 ->whereNumber('asignaturaGrupo')->middleware('can:capturar-calificaciones')->name('calificaciones');
             Route::post('materias/{asignaturaGrupo}/calificaciones', [DocenteApiController::class, 'guardarCalificaciones'])
                 ->whereNumber('asignaturaGrupo')->middleware('can:capturar-calificaciones')->name('calificaciones.guardar');
+
+            // Mi expediente: los documentos que la escuela le pide al docente,
+            // subir/reemplazar y retirar (lo aceptado no se retira desde aquí).
+            // El mismo permiso que la web (`editar-mi-expediente`); de quién es
+            // cada documento lo cierra el controlador con el servicio compartido.
+            Route::get('documentos', [DocenteApiController::class, 'documentos'])
+                ->middleware('can:editar-mi-expediente')->name('documentos');
+            Route::post('documentos', [DocenteApiController::class, 'subirDocumento'])
+                ->middleware('can:editar-mi-expediente')->name('documentos.subir');
+            Route::delete('documentos/{documento}', [DocenteApiController::class, 'eliminarDocumento'])
+                ->whereNumber('documento')->middleware('can:editar-mi-expediente')->name('documentos.eliminar');
         });
     });
 });
