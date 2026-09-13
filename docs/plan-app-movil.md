@@ -226,6 +226,22 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   `PantallaDocumentosAlumno` enlazada desde el panel. Pruebas:
   `prueba-api-alumno-documentos.php` (12, seis mutaciones) + HTTP real + 5 Flutter.
 
+- **Aula: entregar y marcar lecturas** (alumno) ✅. Primera rebanada del LMS
+  interactivo (el cliente pidió el LMS completo en la app). Lo que el alumno
+  HACE en el aula salió a `App\Services\Lms\EntregaDeActividad` —EntregaController
+  y AulaController (la web) delegan—: entregar (texto y/o archivos), marcar y
+  desmarcar una lectura. La regla es la misma: candado del prerrequisito (403),
+  sólo lo que se entrega y mientras esté abierto, una sola entrega si no hay
+  reentrega, reentregar reemplaza e invalida la calificación, «tarde» si ya
+  cerró, y una tarea no se «completa» como lectura. `POST
+  /api/v1/alumno/actividades/{id}/entregar` (multipart), `POST/DELETE
+  .../completar`; la inscripción se resuelve DESDE la actividad (una ajena →
+  403). Flutter: `PantallaActividad` (instrucciones, la entrega con su
+  calificación/retro/archivos, el formulario con adjuntos, y el botón de
+  lectura), abierta al tocar una actividad en la pantalla de materia. Pruebas:
+  `prueba-api-alumno-entrega.php` (13, siete mutaciones) + 4 Flutter. **Falta del
+  LMS: calificar (docente), exámenes y foros.**
+
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
   (la web delega en él): listar, conceder/negar (mientras el plazo siga abierto)
