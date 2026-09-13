@@ -196,6 +196,24 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   expediente». Pruebas: `prueba-api-docente-documentos.php` (14, cinco
   mutaciones) + HTTP real + 6 Flutter.
 
+- **Citas del docente** (docente) ✅. Cierra el ciclo: la familia pedía cita
+  desde la app pero el docente sólo respondía en la web. Toda la regla ya vivía
+  en `GestorDeCitas`; se extrajeron `serializarCita`/`serializarVentana` y
+  `agregar`/`quitarDisponibilidad` para que web y app ofrezcan lo mismo, y el
+  controlador web (`DocenciaCitasController`) pasa a delegar. API bajo
+  `api.faceta:docente` + `can:gestionar-mis-citas`: `GET docente/citas`
+  (agenda), `POST/DELETE docente/disponibilidad[/{id}]`, y
+  `POST docente/citas/{cita}/{confirmar|rechazar|cancelar|marcar}`. Confirmar
+  revalida el traslape bajo bloqueo; rechazar/cancelar exigen motivo; marcar
+  sólo una confirmada ya pasada; una cita ajena → 404 (cancelar → 403 por
+  «esParte», compartido con la familia). Flutter: `PantallaCitasDocente`
+  (responder con sus diálogos, y alta/baja de horarios de atención) enlazada
+  desde el panel con la insignia de solicitudes pendientes. **HALLAZGO**:
+  `gestionar-mis-citas` (docente) y `solicitar-citas` (padre) estaban en el
+  catálogo pero NO en `PermisoSeeder` —la función de citas era inalcanzable por
+  `can:` en toda escuela, web incluida—; se asignaron a sus facetas. Pruebas:
+  `prueba-api-docente-citas.php` (14, cinco mutaciones) + HTTP real + 5 Flutter.
+
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
   (la web delega en él): listar, conceder/negar (mientras el plazo siga abierto)
