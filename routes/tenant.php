@@ -4113,6 +4113,21 @@ Route::middleware([
                 ->middleware('can:editar-mi-expediente')->name('documentos.subir');
             Route::delete('documentos/{documento}', [DocenteApiController::class, 'eliminarDocumento'])
                 ->whereNumber('documento')->middleware('can:editar-mi-expediente')->name('documentos.eliminar');
+
+            // Citas con las familias: la agenda, las ventanas de atención y las
+            // respuestas del docente. Permiso propio `gestionar-mis-citas`; el
+            // alcance (que la cita/ventana sea suya) lo pone el servicio (ajena
+            // → 404). La familia pide desde su portal; aquí el docente contesta.
+            Route::middleware('can:gestionar-mis-citas')->group(function () {
+                Route::get('citas', [DocenteApiController::class, 'citas'])->name('citas');
+                Route::post('disponibilidad', [DocenteApiController::class, 'agregarDisponibilidad'])->name('disponibilidad.agregar');
+                Route::delete('disponibilidad/{disponibilidad}', [DocenteApiController::class, 'quitarDisponibilidad'])
+                    ->whereNumber('disponibilidad')->name('disponibilidad.quitar');
+                Route::post('citas/{cita}/confirmar', [DocenteApiController::class, 'confirmarCita'])->whereNumber('cita')->name('citas.confirmar');
+                Route::post('citas/{cita}/rechazar', [DocenteApiController::class, 'rechazarCita'])->whereNumber('cita')->name('citas.rechazar');
+                Route::post('citas/{cita}/cancelar', [DocenteApiController::class, 'cancelarCita'])->whereNumber('cita')->name('citas.cancelar');
+                Route::post('citas/{cita}/marcar', [DocenteApiController::class, 'marcarCita'])->whereNumber('cita')->name('citas.marcar');
+            });
         });
     });
 });

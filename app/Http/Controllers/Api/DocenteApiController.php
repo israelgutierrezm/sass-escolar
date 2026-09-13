@@ -13,6 +13,8 @@ use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\CalificacionComponente;
 use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Familia\Cita;
+use App\Models\Familia\DisponibilidadCitaDocente;
 use App\Models\Identidad\Usuario;
 use App\Services\AsentadorActa;
 use App\Services\Asistencia\PaseDeLista;
@@ -20,6 +22,7 @@ use App\Services\CalculadoraCalificacion;
 use App\Services\CalendarioCaptura;
 use App\Services\CapturaDeCalificaciones;
 use App\Services\Docencia\DocumentosDelDocente;
+use App\Services\Familia\GestorDeCitas;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -53,6 +56,7 @@ class DocenteApiController extends Controller
         private readonly CalendarioCaptura $calendario,
         private readonly CapturaDeCalificaciones $captura,
         private readonly DocumentosDelDocente $documentos,
+        private readonly GestorDeCitas $gestorCitas,
     ) {}
 
     /** Las materias que imparte, con su grupo, horario y cuántos alumnos. */
@@ -367,6 +371,100 @@ class DocenteApiController extends Controller
 
         $error = $this->documentos->eliminar($documento);
         AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true]);
+    }
+
+    // ── Citas con las familias ──────────────────────────────────────────────
+
+    /**
+     * Mi agenda: mis ventanas de atención, mis citas (últimas 200) y el catálogo
+     * de modalidades. La misma forma que la web —el gestor serializa—.
+     */
+    public function citas(Request $peticion): JsonResponse
+    {
+        $docenteId = $this->personaId($peticion);
+
+        $citas = Cita::query()
+            ->where('docente_persona_id', $docenteId)
+            ->with(['alumno:id,nombre,primer_apellido,segundo_apellido', 'solicitante:id,nombre,primer_apellido,segundo_apellido'])
+            ->orderByDesc('inicio')->limit(200)->get()
+            ->map(fn (Cita $c) => $this->gestorCitas->serializarCita($c))->values()->all();
+
+        return response()->json([
+            'disponibilidad' => $this->gestorCitas->ventanasDe($docenteId)
+                ->map(fn (DisponibilidadCitaDocente $d) => $this->gestorCitas->serializarVentana($d))->values()->all(),
+            'citas' => $citas,
+            'modalidades' => DisponibilidadCitaDocente::MODALIDADES,
+        ]);
+    }
+
+    /** Agrega una ventana de atención a padres (aparte de la de dar clase). */
+    public function agregarDisponibilidad(Request $peticion): JsonResponse
+    {
+        $datos = $peticion->validate([
+            'dia_semana' => ['required', 'integer', 'between:1,7'],
+            'hora_inicio' => ['required', 'date_format:H:i'],
+            'hora_fin' => ['required', 'date_format:H:i', 'after:hora_inicio'],
+            'modalidad' => ['required', 'in:'.implode(',', array_keys(DisponibilidadCitaDocente::MODALIDADES))],
+            'duracion_min' => ['required', 'integer', 'between:5,240'],
+            'lugar' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $this->gestorCitas->agregarDisponibilidad($this->personaId($peticion), $datos);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Quita una ventana mía (ajena → 404). */
+    public function quitarDisponibilidad(Request $peticion, DisponibilidadCitaDocente $disponibilidad): JsonResponse
+    {
+        $this->gestorCitas->quitarDisponibilidad($disponibilidad, $this->personaId($peticion));
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Confirma una cita solicitada (nota y lugar opcionales). Bajo bloqueo revalida el traslape. */
+    public function confirmarCita(Request $peticion, Cita $cita): JsonResponse
+    {
+        $datos = $peticion->validate([
+            'respuesta' => ['nullable', 'string', 'max:500'],
+            'lugar' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $this->gestorCitas->confirmar($cita, $this->personaId($peticion), $datos['respuesta'] ?? null, $datos['lugar'] ?? null);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Rechaza una cita solicitada, con motivo (lo único que la familia puede usar para volver a pedir). */
+    public function rechazarCita(Request $peticion, Cita $cita): JsonResponse
+    {
+        $datos = $peticion->validate(['respuesta' => ['required', 'string', 'max:500']], [
+            'respuesta.required' => 'El rechazo necesita un motivo: es lo único que la familia puede usar para volver a pedir.',
+        ]);
+
+        $this->gestorCitas->rechazar($cita, $this->personaId($peticion), $datos['respuesta']);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Cancela una cita activa suya, con motivo. Se avisa a la familia. */
+    public function cancelarCita(Request $peticion, Cita $cita): JsonResponse
+    {
+        $datos = $peticion->validate(['respuesta' => ['required', 'string', 'max:500']]);
+
+        $this->gestorCitas->cancelar($cita, $this->personaId($peticion), $datos['respuesta']);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Marca el desenlace de una cita confirmada YA PASADA (realizada / no_asistio). */
+    public function marcarCita(Request $peticion, Cita $cita): JsonResponse
+    {
+        $datos = $peticion->validate(['estado' => ['required', 'in:'.Cita::REALIZADA.','.Cita::NO_ASISTIO]]);
+
+        $this->gestorCitas->marcar($cita, $this->personaId($peticion), $datos['estado']);
 
         return response()->json(['ok' => true]);
     }
