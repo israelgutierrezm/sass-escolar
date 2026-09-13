@@ -121,16 +121,68 @@ class GestorDeCitas
             ->whereIn('persona_id', $docenteIds)
             ->orderBy('dia_semana')->orderBy('hora_inicio')->get()
             ->groupBy('persona_id')
-            ->map(fn (Collection $g) => $g->map(fn (DisponibilidadCitaDocente $d) => [
-                'id' => $d->id,
-                'dia_semana' => $d->dia_semana,
-                'hora_inicio' => substr((string) $d->hora_inicio, 0, 5),
-                'hora_fin' => substr((string) $d->hora_fin, 0, 5),
-                'modalidad' => $d->modalidad,
-                'duracion_min' => $d->duracion_min,
-                'lugar' => $d->lugar,
-            ])->values()->all())
+            ->map(fn (Collection $g) => $g->map(fn (DisponibilidadCitaDocente $d) => $this->serializarVentana($d))->values()->all())
             ->all();
+    }
+
+    /**
+     * La forma en que una ventana de atención viaja a las pantallas —la misma para
+     * la web, para la app y para los huecos que se ofrecen a la familia—.
+     *
+     * @return array<string, mixed>
+     */
+    public function serializarVentana(DisponibilidadCitaDocente $d): array
+    {
+        return [
+            'id' => $d->id,
+            'dia_semana' => $d->dia_semana,
+            'hora_inicio' => substr((string) $d->hora_inicio, 0, 5),
+            'hora_fin' => substr((string) $d->hora_fin, 0, 5),
+            'modalidad' => $d->modalidad,
+            'duracion_min' => $d->duracion_min,
+            'lugar' => $d->lugar,
+        ];
+    }
+
+    /**
+     * La forma en que una cita viaja al portal del DOCENTE —web y app—.
+     *
+     * @return array<string, mixed>
+     */
+    public function serializarCita(Cita $c): array
+    {
+        return [
+            'id' => $c->id,
+            'alumno' => $c->alumno?->nombreCompleto(),
+            'solicitante' => $c->solicitante?->nombreCompleto(),
+            'inicio' => $c->inicio?->format('Y-m-d H:i'),
+            'fin' => $c->fin?->format('H:i'),
+            'modalidad' => $c->modalidad,
+            'motivo' => $c->motivo,
+            'lugar' => $c->lugar,
+            'estado' => $c->estado,
+            'respuesta' => $c->respuesta,
+            'ya_paso' => $c->yaPaso(),
+        ];
+    }
+
+    /**
+     * El docente agrega una ventana de atención. La misma escritura para la web y
+     * la app: sólo sus propios datos, con la persona de la sesión como dueña.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    public function agregarDisponibilidad(int $docentePersonaId, array $datos): DisponibilidadCitaDocente
+    {
+        return DisponibilidadCitaDocente::create([...$datos, 'persona_id' => $docentePersonaId]);
+    }
+
+    /** El docente quita una ventana suya. 404 si es ajena: no confirma que exista. */
+    public function quitarDisponibilidad(DisponibilidadCitaDocente $ventana, int $docentePersonaId): void
+    {
+        AvisoParaElUsuario::aMenosQue((int) $ventana->persona_id === $docentePersonaId, 404, 'Esa disponibilidad no es tuya.');
+
+        $ventana->delete();
     }
 
     // ── Transiciones ────────────────────────────────────────────────────────

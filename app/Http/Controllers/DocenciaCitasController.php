@@ -34,18 +34,12 @@ class DocenciaCitasController extends Controller
             ->orderByDesc('inicio')
             ->limit(200)
             ->get()
-            ->map(fn (Cita $c) => $this->citaComoArray($c));
+            ->map(fn (Cita $c) => $this->gestor->serializarCita($c));
 
         return Inertia::render('Docencia/Citas', [
-            'disponibilidad' => $this->gestor->ventanasDe($docenteId)->map(fn (DisponibilidadCitaDocente $d) => [
-                'id' => $d->id,
-                'dia_semana' => $d->dia_semana,
-                'hora_inicio' => substr((string) $d->hora_inicio, 0, 5),
-                'hora_fin' => substr((string) $d->hora_fin, 0, 5),
-                'modalidad' => $d->modalidad,
-                'duracion_min' => $d->duracion_min,
-                'lugar' => $d->lugar,
-            ])->values(),
+            'disponibilidad' => $this->gestor->ventanasDe($docenteId)
+                ->map(fn (DisponibilidadCitaDocente $d) => $this->gestor->serializarVentana($d))
+                ->values(),
             'citas' => $citas->values(),
             'modalidades' => DisponibilidadCitaDocente::MODALIDADES,
         ]);
@@ -62,17 +56,14 @@ class DocenciaCitasController extends Controller
             'lugar' => ['nullable', 'string', 'max:200'],
         ]);
 
-        DisponibilidadCitaDocente::create([...$datos, 'persona_id' => (int) $peticion->user()->persona_id]);
+        $this->gestor->agregarDisponibilidad((int) $peticion->user()->persona_id, $datos);
 
         return back(303)->with('exito', 'Se agregó tu horario de atención.');
     }
 
     public function eliminarDisponibilidad(Request $peticion, DisponibilidadCitaDocente $disponibilidad): RedirectResponse
     {
-        // 404 y no 403: una ventana ajena no debe confirmar que exista.
-        abort_unless((int) $disponibilidad->persona_id === (int) $peticion->user()->persona_id, 404);
-
-        $disponibilidad->delete();
+        $this->gestor->quitarDisponibilidad($disponibilidad, (int) $peticion->user()->persona_id);
 
         return back(303)->with('exito', 'Se quitó el horario.');
     }
@@ -116,23 +107,5 @@ class DocenciaCitasController extends Controller
         $this->gestor->marcar($cita, (int) $peticion->user()->persona_id, $datos['estado']);
 
         return back(303)->with('exito', 'Registrado.');
-    }
-
-    /** @return array<string, mixed> */
-    private function citaComoArray(Cita $c): array
-    {
-        return [
-            'id' => $c->id,
-            'alumno' => $c->alumno?->nombreCompleto(),
-            'solicitante' => $c->solicitante?->nombreCompleto(),
-            'inicio' => $c->inicio?->format('Y-m-d H:i'),
-            'fin' => $c->fin?->format('H:i'),
-            'modalidad' => $c->modalidad,
-            'motivo' => $c->motivo,
-            'lugar' => $c->lugar,
-            'estado' => $c->estado,
-            'respuesta' => $c->respuesta,
-            'ya_paso' => $c->yaPaso(),
-        ];
     }
 }
