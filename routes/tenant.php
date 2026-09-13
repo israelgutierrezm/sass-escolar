@@ -4124,6 +4124,14 @@ Route::middleware([
             Route::post('materias/{asignaturaGrupo}/calificaciones', [DocenteApiController::class, 'guardarCalificaciones'])
                 ->whereNumber('asignaturaGrupo')->middleware('can:capturar-calificaciones')->name('calificaciones.guardar');
 
+            // Aula: las entregas por calificar de una materia y calificar una
+            // (directa o por rúbrica). El alcance por asignación lo exige el
+            // controlador; una entrega de otra materia → 403.
+            Route::get('materias/{asignaturaGrupo}/entregas', [DocenteApiController::class, 'entregas'])
+                ->whereNumber('asignaturaGrupo')->middleware('can:capturar-calificaciones')->name('entregas');
+            Route::put('entregas/{entrega}/calificar', [DocenteApiController::class, 'calificarEntrega'])
+                ->whereNumber('entrega')->middleware('can:capturar-calificaciones')->name('entregas.calificar');
+
             // Mi expediente: los documentos que la escuela le pide al docente,
             // subir/reemplazar y retirar (lo aceptado no se retira desde aquí).
             // El mismo permiso que la web (`editar-mi-expediente`); de quién es

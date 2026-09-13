@@ -16,6 +16,9 @@ use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Familia\Cita;
 use App\Models\Familia\DisponibilidadCitaDocente;
 use App\Models\Identidad\Usuario;
+use App\Models\Lms\Actividad;
+use App\Models\Lms\Curso;
+use App\Models\Lms\Entrega;
 use App\Services\AsentadorActa;
 use App\Services\Asistencia\PaseDeLista;
 use App\Services\CalculadoraCalificacion;
@@ -23,6 +26,8 @@ use App\Services\CalendarioCaptura;
 use App\Services\CapturaDeCalificaciones;
 use App\Services\Docencia\DocumentosDelDocente;
 use App\Services\Familia\GestorDeCitas;
+use App\Services\Lms\CalificacionDeEntrega;
+use App\Services\Lms\CalificadorPorRubrica;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -57,6 +62,8 @@ class DocenteApiController extends Controller
         private readonly CapturaDeCalificaciones $captura,
         private readonly DocumentosDelDocente $documentos,
         private readonly GestorDeCitas $gestorCitas,
+        private readonly CalificacionDeEntrega $calificacionEntrega,
+        private readonly CalificadorPorRubrica $porRubrica,
     ) {}
 
     /** Las materias que imparte, con su grupo, horario y cuántos alumnos. */
@@ -467,6 +474,107 @@ class DocenteApiController extends Controller
         $this->gestorCitas->marcar($cita, $this->personaId($peticion), $datos['estado']);
 
         return response()->json(['ok' => true]);
+    }
+
+    // ── Aula: calificar entregas ────────────────────────────────────────────
+
+    /**
+     * Las entregas por calificar de una materia mía: por cada actividad que se
+     * entrega, sus entregas (de quién, con qué, y su nota si ya la tiene). El
+     * alcance por asignación lo exige `autorizarMateria`.
+     */
+    public function entregas(Request $peticion, AsignaturaGrupo $asignaturaGrupo): JsonResponse
+    {
+        $this->autorizarMateria($peticion, $asignaturaGrupo);
+
+        $curso = Curso::query()->where('asignatura_grupo_id', $asignaturaGrupo->id)->first();
+        if ($curso === null) {
+            return response()->json(['actividades' => []]);
+        }
+
+        $actividades = Actividad::query()->where('curso_id', $curso->id)->orderBy('orden')->orderBy('id')->get()
+            ->filter(fn (Actividad $a) => $a->tipo->seEntrega());
+
+        $porActividad = Entrega::query()
+            ->whereIn('actividad_id', $actividades->pluck('id'))
+            ->whereNotNull('entregada_en')
+            ->with(['inscripcion.matriculaOferta.persona', 'archivos'])
+            ->get()
+            ->groupBy('actividad_id');
+
+        return response()->json([
+            'actividades' => $actividades->map(fn (Actividad $a) => [
+                'id' => $a->id,
+                'titulo' => $a->titulo,
+                'puntos' => (float) $a->puntos,
+                // La nota de una actividad con rúbrica NO se teclea: sale de los
+                // niveles. La app lo respeta (la calificación con rúbrica se hace
+                // en la web); aquí sólo se avisa.
+                'se_califica_con_rubrica' => $a->seCalificaConRubrica(),
+                'por_calificar' => ($porActividad->get($a->id) ?? collect())->whereNull('calificacion')->count(),
+                'entregas' => ($porActividad->get($a->id) ?? collect())->map(fn (Entrega $e) => [
+                    'id' => $e->id,
+                    'alumno' => $e->inscripcion?->matriculaOferta?->persona?->nombreCompleto(),
+                    'matricula' => $e->inscripcion?->matriculaOferta?->matricula,
+                    'estado' => $e->estado,
+                    'contenido' => $e->contenido,
+                    'entregada_en' => $e->entregada_en?->format('Y-m-d H:i'),
+                    'tarde' => $e->tarde,
+                    'calificacion' => $e->calificacion === null ? null : (float) $e->calificacion,
+                    'retroalimentacion' => $e->retroalimentacion,
+                    'archivos' => $e->archivos->map(fn ($f) => ['id' => $f->id, 'nombre' => $f->nombre])->values()->all(),
+                ])->values()->all(),
+            ])->values()->all(),
+        ]);
+    }
+
+    /**
+     * Califica una entrega de una materia mía. Con rúbrica, la nota sale de los
+     * niveles (no se teclea); sin rúbrica, es la calificación directa. Se ramifica
+     * por la ACTIVIDAD, nunca por lo que traiga la petición.
+     */
+    public function calificarEntrega(Request $peticion, Entrega $entrega): JsonResponse
+    {
+        $this->autorizarEntrega($peticion, $entrega);
+        $actividad = $entrega->actividad;
+
+        if ($actividad->seCalificaConRubrica()) {
+            $datos = $peticion->validate([
+                'criterios' => ['required', 'array', 'min:1'],
+                'criterios.*.criterio_id' => ['required', 'integer'],
+                'criterios.*.nivel_id' => ['nullable', 'integer'],
+                'criterios.*.comentario' => ['nullable', 'string', 'max:1000'],
+                'retroalimentacion' => ['nullable', 'string', 'max:4000'],
+            ]);
+
+            $resultado = $this->porRubrica->aplicar($entrega, $datos['criterios'], $datos['retroalimentacion'] ?? null, $peticion->user()->id);
+
+            return response()->json(['ok' => true, 'completa' => $resultado['completa']]);
+        }
+
+        $datos = $peticion->validate([
+            'calificacion' => ['required', 'numeric', 'min:0', 'max:'.$actividad->puntos],
+            'retroalimentacion' => ['nullable', 'string', 'max:4000'],
+        ], [], ['calificacion' => 'calificación']);
+
+        $this->calificacionEntrega->directa($entrega, (float) $datos['calificacion'], $datos['retroalimentacion'] ?? null, $peticion->user()->id);
+
+        return response()->json(['ok' => true, 'completa' => true]);
+    }
+
+    /** Que la entrega sea de una materia que imparto (por la asignación). */
+    private function autorizarEntrega(Request $peticion, Entrega $entrega): void
+    {
+        $agId = $entrega->actividad?->curso?->asignatura_grupo_id;
+
+        $esMia = $agId !== null && AsignaturaGrupo::query()
+            ->whereKey($agId)
+            ->whereHas('docentes', fn ($q) => $q->where('docentes.persona_id', $this->personaId($peticion)))
+            ->exists();
+
+        if (! $esMia) {
+            throw new AccessDeniedHttpException('Esa entrega no es de una materia tuya.');
+        }
     }
 
     /**
