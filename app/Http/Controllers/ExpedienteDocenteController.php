@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\AvisoParaElUsuario;
-use App\Models\Admisiones\DocumentoRequerido;
-use App\Models\Admisiones\EstadoDocumento;
 use App\Models\ControlEscolar\Docente;
 use App\Models\ControlEscolar\DocumentoDocente;
 use App\Models\ControlEscolar\TituloDocente;
 use App\Models\Identidad\Usuario;
 use App\Models\Landlord\Genero;
 use App\Models\Landlord\Sexo;
+use App\Services\Docencia\DocumentosDelDocente;
 use App\Services\GestorTitulosDocente;
 use App\Services\ResolutorFormularios;
 use Illuminate\Http\RedirectResponse;
@@ -39,7 +38,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ExpedienteDocenteController extends Controller
 {
-    private const CARPETA = 'docentes';
+    public function __construct(private readonly DocumentosDelDocente $documentos) {}
 
     public function show(Request $request): Response
     {
@@ -47,6 +46,7 @@ class ExpedienteDocenteController extends Controller
         $docente->load(['persona', 'tipoDocente:id,nombre', 'situacion:id,nombre', 'campus:id,nombre', 'titulos']);
 
         $persona = $docente->persona;
+        $papeles = $this->documentos->datos($docente->persona_id);
 
         return Inertia::render('Docencia/Expediente', [
             'persona' => [
@@ -81,36 +81,10 @@ class ExpedienteDocenteController extends Controller
                 'anio' => $t->anio,
                 'archivo' => $t->archivo_url === null ? null : "/docencia/expediente/titulos/{$t->id}/archivo",
             ]),
-            'documentos' => DocumentoDocente::query()
-                ->with(['documento:id,nombre', 'estado:id,clave,nombre'])
-                ->where('persona_id', $docente->persona_id)
-                ->get()
-                ->map(fn (DocumentoDocente $d) => [
-                    'id' => $d->id,
-                    // Con qué tipo cumple: es lo que permite saber cuáles de los
-                    // obligatorios siguen sin entregar.
-                    'documento_id' => $d->documento_id,
-                    'documento' => $d->documento?->nombre,
-                    'descripcion' => $d->descripcion,
-                    'estado' => $d->estado?->nombre,
-                    'estado_clave' => $d->estado?->clave,
-                    'vigencia' => $d->vigencia?->toDateString(),
-                    'vencido' => $d->estaVencido(),
-                    'observaciones' => $d->observaciones,
-                ]),
-            // Solo lo que la escuela pide a los DOCENTES. Antes se ofrecía el
-            // catálogo entero, que era el del aspirante.
-            'tiposDocumento' => DocumentoRequerido::query()
-                ->delAmbito(DocumentoRequerido::AMBITO_DOCENTE)
-                ->orderBy('nombre')
-                ->get(['id', 'nombre', 'obligatorio'])
-                ->map(fn (DocumentoRequerido $d) => [
-                    'id' => $d->id,
-                    'nombre' => $d->nombre,
-                    // Distinguirlos importa: faltar un obligatorio bloquea, y
-                    // faltar uno opcional no es un pendiente que reclamar.
-                    'obligatorio' => (bool) $d->obligatorio,
-                ]),
+            // Los papeles del expediente y el catálogo del ÁMBITO DOCENTE, del
+            // servicio compartido con la app móvil (`DocumentosDelDocente`).
+            'documentos' => $papeles['documentos'],
+            'tiposDocumento' => $papeles['tipos'],
             'sexos' => Sexo::query()->orderBy('id')->get(['id', 'nombre']),
             'generos' => Genero::query()->orderBy('id')->get(['id', 'nombre']),
             // Los bloques de datos que le tocan y llena él mismo. El titular es
@@ -170,34 +144,13 @@ class ExpedienteDocenteController extends Controller
             'vigencia.after' => 'Un documento que ya venció no sirve como comprobante.',
         ]);
 
-        $anterior = DocumentoDocente::query()
-            ->where('persona_id', $docente->persona_id)
-            ->where('documento_id', $datos['documento_id'])
-            ->first();
-
-        $ruta = $request->file('archivo')->store(
-            sprintf('%s/%d', self::CARPETA, $docente->persona_id),
-            'local',
+        $this->documentos->subir(
+            $docente->persona_id,
+            (int) $datos['documento_id'],
+            $request->file('archivo'),
+            $datos['descripcion'] ?? null,
+            $datos['vigencia'] ?? null,
         );
-
-        DocumentoDocente::updateOrCreate(
-            ['persona_id' => $docente->persona_id, 'documento_id' => $datos['documento_id']],
-            [
-                'url' => $ruta,
-                'descripcion' => $datos['descripcion'] ?? null,
-                'vigencia' => $datos['vigencia'] ?? null,
-                // Re-subir reinicia la revisión: el archivo cambió, así que el
-                // visto bueno anterior ya no dice nada del nuevo.
-                'estado_documento_id' => EstadoDocumento::query()->where('clave', 'pendiente')->value('id'),
-                'observaciones' => null,
-            ],
-        );
-
-        // El archivo viejo se borra del disco: se reemplazó, y guardarlo solo
-        // acumula datos personales que ya nadie va a consultar.
-        if ($anterior !== null && $anterior->url !== $ruta) {
-            Storage::disk('local')->delete($anterior->url);
-        }
 
         return back()->with('exito', 'Documento cargado. Queda pendiente de revisión.');
     }
@@ -206,7 +159,7 @@ class ExpedienteDocenteController extends Controller
     {
         $docente = $this->miDocente($request);
 
-        abort_unless($documento->persona_id === $docente->persona_id, 404);
+        $this->documentos->exigirDelDocente($docente->persona_id, $documento);
         abort_unless(Storage::disk('local')->exists($documento->url), 404);
 
         return Storage::disk('local')->download(
@@ -219,16 +172,12 @@ class ExpedienteDocenteController extends Controller
     {
         $docente = $this->miDocente($request);
 
-        abort_unless($documento->persona_id === $docente->persona_id, 404);
+        $this->documentos->exigirDelDocente($docente->persona_id, $documento);
 
-        // Un documento ya aceptado no lo retira el docente: es el comprobante
-        // en el que la escuela se apoyó para acreditarlo.
-        if ($documento->estado?->clave === 'aceptado') {
-            return back()->with('error', 'Ese documento ya fue aceptado; pide a control escolar que lo retire.');
+        $error = $this->documentos->eliminar($documento);
+        if ($error !== null) {
+            return back()->with('error', $error);
         }
-
-        Storage::disk('local')->delete($documento->url);
-        $documento->delete();
 
         return back()->with('exito', 'Documento eliminado.');
     }
