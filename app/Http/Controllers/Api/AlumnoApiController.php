@@ -14,12 +14,14 @@ use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\ControlEscolar\Inscripcion;
+use App\Models\Lms\Actividad;
 use App\Services\ControlEscolar\DocumentosDelAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\Finanzas\FinanzasParaApp;
 use App\Services\GestorSolicitudFactura;
 use App\Services\HistorialDelAlumno;
 use App\Services\Lms\CursosDelAlumno;
+use App\Services\Lms\EntregaDeActividad;
 use App\Services\Pagos\CobroEnLinea;
 use App\Services\Pagos\RegistroDeComprobante;
 use Illuminate\Http\JsonResponse;
@@ -68,6 +70,7 @@ class AlumnoApiController extends Controller
         private readonly CobroEnLinea $cobro,
         private readonly RegistroDeComprobante $registroComprobante,
         private readonly DocumentosDelAlumno $documentosAlumno,
+        private readonly EntregaDeActividad $entregas,
     ) {}
 
     /** Sus materias, agrupadas por ciclo, con lo que le falta entregar. */
@@ -231,6 +234,73 @@ class AlumnoApiController extends Controller
         AvisoParaElUsuario::si($error !== null, 422, (string) $error);
 
         return response()->json(['ok' => true]);
+    }
+
+    // ── Aula: entregar y marcar lecturas ────────────────────────────────────
+
+    /**
+     * Entrega (o reentrega) una actividad. Multipart: `contenido` y/o `archivos[]`.
+     * La regla vive en `EntregaDeActividad` (la misma que la web): candado del
+     * prerrequisito, sólo lo que se entrega y mientras esté abierto, reentregar
+     * reemplaza. Devuelve si quedó marcada como fuera de tiempo.
+     */
+    public function entregarActividad(Request $peticion, Actividad $actividad): JsonResponse
+    {
+        $inscripcion = $this->miInscripcionParaActividad($peticion, $actividad);
+
+        $datos = $peticion->validate([
+            'contenido' => ['nullable', 'string', 'max:20000'],
+            'archivos' => ['nullable', 'array', 'max:5'],
+            'archivos.*' => ['file', 'max:20480'],
+        ], [], ['contenido' => 'respuesta']);
+
+        ['error' => $error, 'entrega' => $entrega] = $this->entregas->entregar(
+            $actividad,
+            $inscripcion,
+            $datos['contenido'] ?? null,
+            $peticion->file('archivos', []),
+        );
+
+        AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true, 'tarde' => $entrega?->tarde ?? false]);
+    }
+
+    /** «Ya la terminé» sobre una LECTURA (una tarea se completa entregándola). */
+    public function completarActividad(Request $peticion, Actividad $actividad): JsonResponse
+    {
+        $inscripcion = $this->miInscripcionParaActividad($peticion, $actividad);
+
+        $error = $this->entregas->completarLectura($actividad, $inscripcion);
+        AvisoParaElUsuario::si($error !== null, 422, (string) $error);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Deshacer el «ya la terminé». */
+    public function descompletarActividad(Request $peticion, Actividad $actividad): JsonResponse
+    {
+        $inscripcion = $this->miInscripcionParaActividad($peticion, $actividad);
+
+        $this->entregas->descompletarLectura($actividad, $inscripcion);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Mi inscripción en la materia de esa actividad. Si no la curso, 403 con la
+     * misma respuesta que si no existiera: probar ids no revela qué actividades hay.
+     */
+    private function miInscripcionParaActividad(Request $peticion, Actividad $actividad): Inscripcion
+    {
+        $agId = $actividad->curso?->asignatura_grupo_id;
+
+        $inscripcion = $agId === null ? null : Inscripcion::query()
+            ->where('asignatura_grupo_id', $agId)
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($peticion)->pluck('id'))
+            ->first();
+
+        return $inscripcion ?? AvisoParaElUsuario::lanzar(403, 'Esa actividad no es de una materia que curses.');
     }
 
     /** La persona autenticada. Sin ella no hay expediente que mostrar. */

@@ -3978,6 +3978,16 @@ Route::middleware([
                 ->middleware('can:ver-mis-cursos')->name('materias');
             Route::get('materias/{asignaturaGrupo}', [AlumnoApiController::class, 'materia'])
                 ->whereNumber('asignaturaGrupo')->middleware('can:ver-mis-cursos')->name('materia');
+
+            // Aula: entregar una actividad y marcar/desmarcar una lectura. La
+            // inscripción se resuelve DESDE la actividad (una ajena → 403); la
+            // regla (candado, abierto, reentrega) vive en el servicio compartido.
+            Route::post('actividades/{actividad}/entregar', [AlumnoApiController::class, 'entregarActividad'])
+                ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('actividades.entregar');
+            Route::post('actividades/{actividad}/completar', [AlumnoApiController::class, 'completarActividad'])
+                ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('actividades.completar');
+            Route::delete('actividades/{actividad}/completar', [AlumnoApiController::class, 'descompletarActividad'])
+                ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('actividades.descompletar');
             Route::get('historial', [AlumnoApiController::class, 'historial'])
                 ->middleware('can:ver-historial-academico')->name('historial');
             Route::get('estado-cuenta', [AlumnoApiController::class, 'estadoCuenta'])
