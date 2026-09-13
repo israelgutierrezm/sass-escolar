@@ -86,7 +86,7 @@ class PresentacionExamenController extends Controller
                 'entregado_en' => $i->entregado_en?->toDateTimeString(),
                 'en_curso' => ! $i->entregado(),
                 // Un resultado que todavía no se debe ver, no viaja.
-                'resultado' => $this->resultadoVisible($examen, $actividad, $i),
+                'resultado' => $this->aplicador->resultadoVisible($i),
             ])->values(),
             'puede_iniciar' => $actividad->abierta()
                 && $bloqueo === null
@@ -301,7 +301,7 @@ class PresentacionExamenController extends Controller
     {
         $examen = $intento->examen;
         $actividad = $examen->actividad;
-        $resultado = $this->resultadoVisible($examen, $actividad, $intento);
+        $resultado = $this->aplicador->resultadoVisible($intento);
 
         return Inertia::render('MisCursos/Resultado', [
             'actividad' => ['id' => $actividad->id, 'titulo' => $actividad->titulo],
@@ -315,92 +315,8 @@ class PresentacionExamenController extends Controller
             'resultado' => $resultado,
             // El detalle reactivo por reactivo solo si ya se puede ver el
             // resultado: si no, es el examen resuelto servido en bandeja.
-            'detalle' => $resultado === null ? [] : $this->detalle($intento, $examen),
+            'detalle' => $resultado === null ? [] : $this->aplicador->detalle($intento),
         ]);
-    }
-
-    /**
-     * El puntaje, si ya toca mostrarlo.
-     *
-     * `al_cerrar` significa después de la fecha de cierre de la actividad: es lo
-     * que impide que el primero en entregar le pase las respuestas al resto.
-     * Mientras haya un reactivo esperando al docente tampoco se muestra: sería
-     * una nota parcial que el alumno leería como definitiva.
-     *
-     * @return array<string, mixed>|null
-     */
-    private function resultadoVisible(Examen $examen, Actividad $actividad, Intento $intento): ?array
-    {
-        if (! $intento->entregado() || $examen->mostrar_resultado === Examen::RESULTADO_NUNCA) {
-            return null;
-        }
-
-        if ($intento->requiere_revision) {
-            return null;
-        }
-
-        $yaCerro = $actividad->cierra_en !== null && now()->gt($actividad->cierra_en);
-
-        if ($examen->mostrar_resultado === Examen::RESULTADO_AL_CERRAR && ! $yaCerro) {
-            return null;
-        }
-
-        $plan = $intento->inscripcion?->asignaturaGrupo?->planMateria?->plan;
-
-        return [
-            'puntos_obtenidos' => (float) $intento->puntos_obtenidos,
-            'puntos_posibles' => (float) $intento->puntos_posibles,
-            'en_escala' => $intento->enEscala(),
-            // La escala viaja con la nota para que la pantalla sepa qué es un
-            // buen resultado: con umbrales fijos, un 70 sobre 100 se pintaba
-            // de rojo en una escuela donde aprueba con 60.
-            'aprobatoria' => (float) ($plan?->calificacion_minima_aprobatoria ?? 6),
-            'maxima' => (float) ($plan?->calificacion_maxima ?? 10),
-        ];
-    }
-
-    /**
-     * Reactivo por reactivo: qué contestó, si acertó y la retroalimentación.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function detalle(Intento $intento, Examen $examen): array
-    {
-        $respuestas = $intento->respuestas()->with('reactivo.opciones')->get();
-
-        return $this->aplicador->reactivosDelIntento($intento)
-            ->map(function (Reactivo $reactivo) use ($respuestas, $examen) {
-                $mia = $respuestas->firstWhere('reactivo_id', $reactivo->id);
-
-                /*
-                 * Sin fila de respuesta no contestó, y no contestar es no
-                 * acertar: le toca la retroalimentación del error. Lo que de
-                 * verdad queda indefinido es una respuesta que existe y espera
-                 * al docente —una abierta sin revisar—, y ahí no se dice nada
-                 * para no adelantarle un resultado que aún no tiene.
-                 */
-                $acerto = $mia === null ? false : $mia->correcta;
-
-                return [
-                    'id' => $reactivo->id,
-                    'enunciado' => $reactivo->enunciado,
-                    'puntos' => $examen->puntosDe($reactivo),
-                    'obtenidos' => $mia?->puntos !== null ? (float) $mia->puntos : null,
-                    'correcta' => $acerto,
-                    // La que corresponde a cómo le fue: al que acertó se le
-                    // confirma por qué, al que falló se le dice dónde se perdió.
-                    'retroalimentacion' => $reactivo->retroalimentacionSegun($acerto),
-                    'comentario' => $mia?->comentario,
-                    // Ahora sí se dice cuál era la buena: el examen ya cerró.
-                    'esperada' => $reactivo->opciones
-                        ->where('correcta', true)
-                        ->pluck('texto')
-                        ->values()
-                        ->all(),
-                ];
-            })
-            ->values()
-            ->all();
     }
 
     /**

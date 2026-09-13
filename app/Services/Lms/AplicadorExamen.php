@@ -276,6 +276,76 @@ class AplicadorExamen
     }
 
     /**
+     * El puntaje de un intento, SÓLO si ya toca mostrarlo. `al_cerrar` significa
+     * después de la fecha de cierre —impide que el primero en entregar le pase
+     * las respuestas al resto—; con un reactivo esperando al docente tampoco se
+     * muestra, sería una nota parcial leída como definitiva. La regla vive aquí
+     * para que la web y la app no la escriban distinto.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resultadoVisible(Intento $intento): ?array
+    {
+        $examen = $intento->examen;
+        $actividad = $examen->actividad;
+
+        if (! $intento->entregado() || $examen->mostrar_resultado === Examen::RESULTADO_NUNCA) {
+            return null;
+        }
+
+        if ($intento->requiere_revision) {
+            return null;
+        }
+
+        $yaCerro = $actividad->cierra_en !== null && now()->gt($actividad->cierra_en);
+
+        if ($examen->mostrar_resultado === Examen::RESULTADO_AL_CERRAR && ! $yaCerro) {
+            return null;
+        }
+
+        $plan = $intento->inscripcion?->asignaturaGrupo?->planMateria?->plan;
+
+        return [
+            'puntos_obtenidos' => (float) $intento->puntos_obtenidos,
+            'puntos_posibles' => (float) $intento->puntos_posibles,
+            'en_escala' => $intento->enEscala(),
+            'aprobatoria' => (float) ($plan?->calificacion_minima_aprobatoria ?? 6),
+            'maxima' => (float) ($plan?->calificacion_maxima ?? 10),
+        ];
+    }
+
+    /**
+     * Reactivo por reactivo: qué contestó, si acertó, la retroalimentación que le
+     * toca y —ya cerrado— la respuesta esperada.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function detalle(Intento $intento): array
+    {
+        $examen = $intento->examen;
+        $respuestas = $intento->respuestas()->with('reactivo.opciones')->get();
+
+        return $this->reactivosDelIntento($intento)
+            ->map(function (Reactivo $reactivo) use ($respuestas, $examen) {
+                $mia = $respuestas->firstWhere('reactivo_id', $reactivo->id);
+                $acerto = $mia === null ? false : $mia->correcta;
+
+                return [
+                    'id' => $reactivo->id,
+                    'enunciado' => $reactivo->enunciado,
+                    'puntos' => $examen->puntosDe($reactivo),
+                    'obtenidos' => $mia?->puntos !== null ? (float) $mia->puntos : null,
+                    'correcta' => $acerto,
+                    'retroalimentacion' => $reactivo->retroalimentacionSegun($acerto),
+                    'comentario' => $mia?->comentario,
+                    'esperada' => $reactivo->opciones->where('correcta', true)->pluck('texto')->values()->all(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * El docente pone los puntos de un reactivo abierto; si ya no queda ninguno
      * pendiente, el examen se cierra y la nota entra sola.
      */
