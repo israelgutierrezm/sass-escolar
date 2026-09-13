@@ -178,6 +178,24 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   irreversible que se queda en la web. Pruebas:
   `prueba-captura-calificaciones.php` (13) + HTTP real + 2 Flutter.
 
+- **Avisos y Mi expediente** (docente) ✅. Dos cosas que le faltaban al portal
+  del docente en la app. Los AVISOS reusan tal cual el `GET /avisos` +
+  `POST /avisos/{aviso}/confirmar` por PERSONA (fuera de faceta) y la misma
+  `PantallaAvisos` del alumno: recibir un aviso no depende del rol. Los
+  DOCUMENTOS de su propio expediente salieron a un servicio compartido
+  `App\Services\Docencia\DocumentosDelDocente` (la web —`ExpedienteDocenteController`—
+  delega en él, es el molde de `EntregaDocumentos`): listar los tipos del ÁMBITO
+  DOCENTE con lo subido encima, subir (multipart, reinicia la revisión),
+  reemplazar y quitar. A diferencia de la familia NO hay vínculo ni edad —es su
+  expediente—: re-subir un aceptado SÍ se permite, pero retirarlo NO (la escuela
+  se apoyó en él). `GET /api/v1/docente/documentos`, `POST …/documentos`
+  (multipart: `archivo`, `documento_id` —de otro ámbito → 422) y `DELETE
+  …/documentos/{doc}` (ajeno → 404, aceptado → 422) bajo `can:editar-mi-expediente`.
+  Flutter: `PantallaDocumentosDocente` (misma forma que la de la familia, sin el
+  bloqueo por edad) y el panel del docente reusa `PantallaAvisos` y enlaza «Mi
+  expediente». Pruebas: `prueba-api-docente-documentos.php` (14, cinco
+  mutaciones) + HTTP real + 6 Flutter.
+
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
   (la web delega en él): listar, conceder/negar (mientras el plazo siga abierto)
