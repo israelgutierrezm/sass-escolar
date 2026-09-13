@@ -10,6 +10,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\ActividadVista;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
+use App\Services\Lms\EntregaDeActividad;
 use App\Services\Lms\Prerequisitos;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -45,7 +46,10 @@ class AulaController extends Controller
 {
     use AlcanceDelAlumno;
 
-    public function __construct(private readonly Prerequisitos $prerequisitos) {}
+    public function __construct(
+        private readonly Prerequisitos $prerequisitos,
+        private readonly EntregaDeActividad $aula,
+    ) {}
 
     /**
      * Una lección, con el índice completo del curso al lado.
@@ -109,16 +113,10 @@ class AulaController extends Controller
 
         $this->exigirDeLaMateria($actividad, $asignaturaGrupo);
 
-        abort_if($actividad->tipo->seEntrega(), 422, 'Esta actividad se completa entregándola.');
-
-        // No se marca como leída una lección que su prerrequisito mantiene
-        // cerrada: la pantalla la esconde, pero el POST llega igual.
-        $this->prerequisitos->exigirDesbloqueada($actividad, $inscripcion->id);
-
-        ActividadVista::actualizarOReviver(
-            ['actividad_id' => $actividad->id, 'inscripcion_id' => $inscripcion->id],
-            ['vista_en' => now(), 'completada_en' => now()],
-        );
+        // La regla vive en el servicio compartido con la app: sólo lecturas, y
+        // no una que su prerrequisito mantiene cerrada.
+        $error = $this->aula->completarLectura($actividad, $inscripcion);
+        abort_if($error !== null, 422, $error);
 
         return back();
     }
@@ -130,10 +128,7 @@ class AulaController extends Controller
 
         $this->exigirDeLaMateria($actividad, $asignaturaGrupo);
 
-        ActividadVista::query()
-            ->where('actividad_id', $actividad->id)
-            ->where('inscripcion_id', $inscripcion->id)
-            ->update(['completada_en' => null]);
+        $this->aula->descompletarLectura($actividad, $inscripcion);
 
         return back();
     }

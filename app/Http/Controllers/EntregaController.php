@@ -9,10 +9,8 @@ use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
-use App\Models\Lms\Entrega;
 use App\Models\Lms\EntregaArchivo;
-use App\Services\Lms\CalificadorPorRubrica;
-use App\Services\Lms\Prerequisitos;
+use App\Services\Lms\EntregaDeActividad;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -29,7 +27,7 @@ class EntregaController extends Controller
 {
     use AlcanceDelAlumno;
 
-    public function __construct(private readonly Prerequisitos $prerequisitos) {}
+    public function __construct(private readonly EntregaDeActividad $entregas) {}
 
     public function guardar(Request $request, Actividad $actividad): RedirectResponse
     {
@@ -37,87 +35,21 @@ class EntregaController extends Controller
 
         AvisoParaElUsuario::si($inscripcion === null, 403, 'Esa actividad no es de una materia que curses.');
 
-        if (! $actividad->tipo->seEntrega()) {
-            return back()->with('error', 'Esta actividad es de lectura: no hay nada que entregar.');
-        }
-
-        if (! $actividad->abierta()) {
-            return back()->with('error', 'La entrega de esta actividad está cerrada.');
-        }
-
-        // El candado de avance: no se entrega una actividad que su prerrequisito
-        // mantiene cerrada. Esconder el botón no basta —el POST llega igual—.
-        $this->prerequisitos->exigirDesbloqueada($actividad, $inscripcion->id);
-
-        /*
-         * Hay trabajos de una sola oportunidad y así lo configuró el docente.
-         *
-         * Se comprueba AQUÍ y no sólo escondiendo el botón: la pantalla se puede
-         * saltar, y lo que está en juego es que alguien reemplace su trabajo
-         * después de leer la retroalimentación del docente —o después de ver la
-         * calificación de un compañero—.
-         */
-        $yaEntregada = Entrega::query()
-            ->where('actividad_id', $actividad->id)
-            ->where('inscripcion_id', $inscripcion->id)
-            ->whereNotNull('entregada_en')
-            ->exists();
-
-        if ($yaEntregada && ! $actividad->permite_reentrega) {
-            return back()->with('error', 'Esta actividad admite una sola entrega, y la tuya ya está registrada.');
-        }
-
         $datos = $request->validate([
             'contenido' => ['nullable', 'string', 'max:20000'],
             'archivos' => ['nullable', 'array', 'max:5'],
             'archivos.*' => ['file', 'max:20480'],
         ], [], ['contenido' => 'respuesta']);
 
-        if (blank($datos['contenido'] ?? null) && ! $request->hasFile('archivos')) {
-            return back()->with('error', 'Escribe una respuesta o adjunta al menos un archivo.');
-        }
-
-        // Reentregar REEMPLAZA: hay un renglón por alumno y actividad, y crear
-        // otro chocaría contra el unique. Lo aprendimos en `inscripcion`.
-        $entrega = Entrega::actualizarOReviver(
-            ['actividad_id' => $actividad->id, 'inscripcion_id' => $inscripcion->id],
-            [
-                'contenido' => $datos['contenido'] ?? null,
-                'estado' => Entrega::ENTREGADA,
-                'entregada_en' => now(),
-                // Se decide AHORA y se guarda: si la fecha de cierre se mueve
-                // después, el dato de que llegó tarde se habría perdido.
-                'tarde' => $actividad->cierra_en !== null && now()->gt($actividad->cierra_en),
-                // Reentregar invalida la calificación anterior: se califica lo
-                // que hay, no lo que hubo.
-                'calificacion' => null,
-                'retroalimentacion' => null,
-                'calificada_por' => null,
-                'calificada_en' => null,
-            ],
+        ['error' => $error, 'entrega' => $entrega] = $this->entregas->entregar(
+            $actividad,
+            $inscripcion,
+            $datos['contenido'] ?? null,
+            $request->file('archivos', []),
         );
 
-        /*
-         * Y el desglose de la rúbrica, si lo había.
-         *
-         * La calificación se limpia arriba; el desglose es la explicación de esa
-         * calificación y explicaba un trabajo que ya no está. Dejarlo haría que
-         * el alumno leyera «Ortografía: insuficiente» sobre el texto corregido
-         * que acaba de subir.
-         */
-        app(CalificadorPorRubrica::class)->olvidar($entrega);
-
-        foreach ($request->file('archivos', []) as $archivo) {
-            // Disco `local` (privado), como el resto de los adjuntos del sistema.
-            $ruta = $archivo->store("entregas/{$entrega->id}", 'local');
-
-            EntregaArchivo::create([
-                'entrega_id' => $entrega->id,
-                'ruta' => $ruta,
-                'nombre' => $archivo->getClientOriginalName(),
-                'bytes' => $archivo->getSize(),
-                'mime' => $archivo->getMimeType(),
-            ]);
+        if ($error !== null) {
+            return back()->with('error', $error);
         }
 
         return back()->with(
