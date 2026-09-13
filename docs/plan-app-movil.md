@@ -253,7 +253,40 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   entregas → diálogo de nota+retro) desde el detalle de materia; **las de rúbrica
   se califican en la web** (la nota sale de los niveles, no se teclea — su UI
   queda para después). Pruebas: `prueba-api-docente-calificar.php` (8, cinco
-  mutaciones) + 3 Flutter. **Falta del LMS: exámenes y foros.**
+  mutaciones) + 3 Flutter.
+
+- **Aula: presentar exámenes** (alumno) ✅. El motor de exámenes entero en la app,
+  con los doce tipos de reactivo. **Servidor**: `resultadoVisible(Intento)` —cuándo
+  se puede ver la nota: nunca / al entregar / al cerrar, y nunca con un reactivo
+  esperando al docente— y `detalle(Intento)` —reactivo por reactivo— salieron de
+  `PresentacionExamenController` a `AplicadorExamen`, así que la app aplica la MISMA
+  regla que la web (el controlador delega; `prueba-captura-examen` 12/12 sin
+  cambio). Seis endpoints bajo `api.faceta:alumno` + `can:ver-mis-cursos`, todos
+  sobre el mismo motor: `GET actividades/{a}/examen` (ficha: intentos, resultado
+  visible, si puede iniciar), `POST …/examen/iniciar` (abre el intento, con el
+  sorteo y el reloj fijados), `GET intentos/{i}` (abierto → reactivos + lo
+  contestado + `segundos_restantes`; entregado o vencido → el resultado con su
+  desglose), `POST intentos/{i}/responder` (autoguardado), `POST …/archivo`
+  (adjunto de un reactivo de tipo archivo) y `POST …/entregar`. El `paraResolver`
+  de cada reactivo viaja SIN la respuesta correcta —el servidor nunca la manda, así
+  que no se puede leer desde el cliente—; un intento que no es mío → 403; el reloj
+  vencido se cierra con lo contestado. **Flutter**: `PantallaExamen` (la ficha) y
+  `PantallaIntento` —una sola pantalla que el `entregado` del servidor resuelve en
+  resolver o resultado—, con `_ReactivoResolver` dibujando las diez formas
+  (`una_opcion`, `varias_opciones`, `texto_largo`, `texto_corto`, `numero`,
+  `huecos`, `emparejar`, `ordenar`, `coordenada`, `archivo`): reloj a partir de
+  `segundos_restantes` (se entrega solo al llegar a cero), autoguardado con retardo
+  (una petición por respuesta, no por tecla), mapa de avance para saltar, y el
+  resultado con la nota en escala y el desglose. **Ordenar arranca contestado**: la
+  secuencia presentada ya es una respuesta válida, así que se manda al montar —quien
+  la deja quieta no saca cero—. **Las imágenes de un reactivo** (incluido el hotspot)
+  las sirve la escuela tras la sesión web y la app va con token: si no cargan, se
+  dice en vez de dejar un hueco roto —la descarga del archivo que subió el alumno
+  y las imágenes internas quedan para después—. Pruebas:
+  `prueba-api-alumno-examen.php` (8 verif, tres mutaciones —la visibilidad del
+  resultado, la suma del puntaje y el guard del intento ajeno—, con el examen y sus
+  reactivos construidos en la transacción) + humo por HTTP (las seis rutas
+  registradas y el 401 en JSON sin token) + 8 Flutter. **Falta del LMS: foros.**
 
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
