@@ -286,7 +286,35 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   `prueba-api-alumno-examen.php` (8 verif, tres mutaciones —la visibilidad del
   resultado, la suma del puntaje y el guard del intento ajeno—, con el examen y sus
   reactivos construidos en la transacción) + humo por HTTP (las seis rutas
-  registradas y el 401 en JSON sin token) + 8 Flutter. **Falta del LMS: foros.**
+  registradas y el 401 en JSON sin token) + 8 Flutter.
+
+- **Aula: participar en foros** (alumno) ✅. Cierra el LMS interactivo. **Servidor**:
+  toda la regla del foro salió de `ForoController` a `App\Services\Lms\ForoDeActividad`
+  —leer los temas, abrir uno, responder (con anidado de UN SOLO nivel: responder a
+  una respuesta se aplana al primer nivel), moderar, y lo que se pierde si se
+  escribe dos veces, que PARTICIPAR CUENTA COMO ENTREGAR (al publicar, la entrega
+  del alumno queda registrada para que un foro ponderado se califique como una
+  tarea)—. Los guardas suaves (foro cerrado, tema cerrado) devuelven su motivo,
+  como `EntregaDeActividad`; el candado de prerrequisito lanza (403). La web
+  delega, con su comportamiento preservado. Cuatro endpoints bajo
+  `api.faceta:alumno` + `can:ver-mis-cursos`: `GET actividades/{a}/foro` (temas y,
+  con `?tema=`, el abierto; `yo` para saber qué es mío), `POST …/foro/temas`
+  (abrir), `POST …/foro/temas/{t}/responder` y `DELETE …/foro/temas/{t}` (retirar
+  lo PROPIO). El alumno NUNCA modera (`moderador: false`): un tema ajeno → 403; la
+  inscripción se resuelve desde la actividad (una ajena → 403); el foro tiene que
+  estar publicado. **Flutter**: `PantallaForo` (temas, con los fijados arriba, y
+  «Nuevo tema» con su diálogo; el aviso cuando está cerrado o bloqueado) y
+  `PantallaTema` (el cuerpo, las respuestas con su réplica anidada, el cajón para
+  responder al tema o a una respuesta elegida, y —si es mío— retirarlo). Un foro se
+  enruta a su pantalla desde la materia, no al formulario de entrega. Pruebas:
+  `prueba-api-alumno-foro.php` (14 verif, tres mutaciones —el guard de borrar lo
+  ajeno, el aplanado del anidado y el guard del foro cerrado—, con el foro y sus
+  temas construidos en la transacción) + humo por HTTP (las cuatro rutas y el 401
+  en JSON) + 10 Flutter.
+
+**Con esto el LMS queda COMPLETO en la app del alumno** —materias, aula (entregar y
+marcar lecturas), exámenes (los doce tipos de reactivo) y foros—, además de
+historial, estado de cuenta con factura y pago en línea, avisos y expediente.
 
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
