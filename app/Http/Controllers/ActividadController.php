@@ -14,6 +14,7 @@ use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
 use App\Services\Lms\CalculadorComponente;
+use App\Services\Lms\CalificacionDeEntrega;
 use App\Services\Lms\CalificadorPorRubrica;
 use App\Services\Lms\Prerequisitos;
 use App\Support\HtmlSeguro;
@@ -38,6 +39,7 @@ class ActividadController extends Controller
     public function __construct(
         private readonly CalculadorComponente $calculador,
         private readonly CalificadorPorRubrica $porRubrica,
+        private readonly CalificacionDeEntrega $calificacion,
         private readonly Prerequisitos $prerequisitos,
     ) {}
 
@@ -167,15 +169,7 @@ class ActividadController extends Controller
         /** @var Usuario $usuario */
         $usuario = $request->user();
 
-        $entrega->update([
-            'calificacion' => $datos['calificacion'],
-            'retroalimentacion' => $datos['retroalimentacion'] ?? null,
-            'estado' => Entrega::CALIFICADA,
-            'calificada_por' => $usuario->id,
-            'calificada_en' => now(),
-        ]);
-
-        $this->calculador->tras($entrega);
+        $this->calificacion->directa($entrega, (float) $datos['calificacion'], $datos['retroalimentacion'] ?? null, $usuario->id);
 
         return back()->with('exito', 'Calificación registrada.');
     }
