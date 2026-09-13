@@ -3988,6 +3988,22 @@ Route::middleware([
                 ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('actividades.completar');
             Route::delete('actividades/{actividad}/completar', [AlumnoApiController::class, 'descompletarActividad'])
                 ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('actividades.descompletar');
+
+            // Presentar exámenes: la ficha, iniciar el intento, resolverlo (con su
+            // reloj y sus reactivos), ir guardando respuestas, adjuntar archivos y
+            // entregar. El motor (`AplicadorExamen`) es el mismo que la web.
+            Route::get('actividades/{actividad}/examen', [AlumnoApiController::class, 'examen'])
+                ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('examen');
+            Route::post('actividades/{actividad}/examen/iniciar', [AlumnoApiController::class, 'iniciarExamen'])
+                ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('examen.iniciar');
+            Route::get('intentos/{intento}', [AlumnoApiController::class, 'intento'])
+                ->whereNumber('intento')->middleware('can:ver-mis-cursos')->name('intento');
+            Route::post('intentos/{intento}/responder', [AlumnoApiController::class, 'responderExamen'])
+                ->whereNumber('intento')->middleware('can:ver-mis-cursos')->name('intento.responder');
+            Route::post('intentos/{intento}/archivo', [AlumnoApiController::class, 'responderArchivoExamen'])
+                ->whereNumber('intento')->middleware('can:ver-mis-cursos')->name('intento.archivo');
+            Route::post('intentos/{intento}/entregar', [AlumnoApiController::class, 'entregarExamen'])
+                ->whereNumber('intento')->middleware('can:ver-mis-cursos')->name('intento.entregar');
             Route::get('historial', [AlumnoApiController::class, 'historial'])
                 ->middleware('can:ver-historial-academico')->name('historial');
             Route::get('estado-cuenta', [AlumnoApiController::class, 'estadoCuenta'])

@@ -15,13 +15,17 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
+use App\Models\Lms\Intento;
+use App\Models\Lms\Reactivo;
 use App\Services\ControlEscolar\DocumentosDelAlumno;
 use App\Services\EstadoCuenta;
 use App\Services\Finanzas\FinanzasParaApp;
 use App\Services\GestorSolicitudFactura;
 use App\Services\HistorialDelAlumno;
+use App\Services\Lms\AplicadorExamen;
 use App\Services\Lms\CursosDelAlumno;
 use App\Services\Lms\EntregaDeActividad;
+use App\Services\Lms\Prerequisitos;
 use App\Services\Pagos\CobroEnLinea;
 use App\Services\Pagos\RegistroDeComprobante;
 use Illuminate\Http\JsonResponse;
@@ -71,6 +75,8 @@ class AlumnoApiController extends Controller
         private readonly RegistroDeComprobante $registroComprobante,
         private readonly DocumentosDelAlumno $documentosAlumno,
         private readonly EntregaDeActividad $entregas,
+        private readonly AplicadorExamen $examenes,
+        private readonly Prerequisitos $prerequisitos,
     ) {}
 
     /** Sus materias, agrupadas por ciclo, con lo que le falta entregar. */
@@ -285,6 +291,186 @@ class AlumnoApiController extends Controller
         $this->entregas->descompletarLectura($actividad, $inscripcion);
 
         return response()->json(['ok' => true]);
+    }
+
+    // ── Aula: presentar exámenes ────────────────────────────────────────────
+
+    /** La ficha del examen: intentos, resultado visible de cada uno y si puedo iniciar. */
+    public function examen(Request $peticion, Actividad $actividad): JsonResponse
+    {
+        [$examen, $inscripcion] = $this->contextoExamen($peticion, $actividad);
+
+        $intentos = Intento::query()
+            ->where('examen_id', $examen->id)->where('inscripcion_id', $inscripcion->id)
+            ->orderBy('numero')->get();
+        $enCurso = $intentos->firstWhere('entregado_en', null);
+        $bloqueo = $this->prerequisitos->bloqueoPara($actividad, $inscripcion->id);
+
+        return response()->json([
+            'actividad' => [
+                'id' => $actividad->id,
+                'titulo' => $actividad->titulo,
+                'instrucciones' => $actividad->instrucciones,
+                'puntos' => (float) $actividad->puntos,
+                'cierra_en' => $actividad->cierra_en?->format('d/m/Y H:i'),
+                'abierta' => $actividad->abierta(),
+                'bloqueada_por' => $bloqueo?->titulo,
+            ],
+            'examen' => [
+                'intentos_permitidos' => $examen->intentos_permitidos,
+                'minutos_limite' => $examen->minutos_limite,
+                'total_reactivos' => $examen->reactivos_a_presentar ?? $examen->reactivos()->count(),
+            ],
+            'intentos' => $intentos->map(fn (Intento $i) => [
+                'id' => $i->id,
+                'numero' => $i->numero,
+                'entregado_en' => $i->entregado_en?->format('Y-m-d H:i'),
+                'en_curso' => ! $i->entregado(),
+                'resultado' => $this->examenes->resultadoVisible($i),
+            ])->values()->all(),
+            'puede_iniciar' => $actividad->abierta() && $bloqueo === null && $enCurso === null && $examen->permiteOtroIntento($intentos->count()),
+            'intento_en_curso' => $enCurso?->id,
+        ]);
+    }
+
+    /** Abre un intento (o devuelve el que sigue en curso). */
+    public function iniciarExamen(Request $peticion, Actividad $actividad): JsonResponse
+    {
+        [$examen, $inscripcion] = $this->contextoExamen($peticion, $actividad);
+
+        AvisoParaElUsuario::aMenosQue($actividad->abierta(), 422, 'Este examen ya está cerrado.');
+        $this->prerequisitos->exigirDesbloqueada($actividad, $inscripcion->id);
+
+        try {
+            $intento = $this->examenes->iniciar($examen, $inscripcion);
+        } catch (\RuntimeException $e) {
+            AvisoParaElUsuario::lanzar(422, $e->getMessage());
+        }
+
+        return response()->json(['intento_id' => $intento->id]);
+    }
+
+    /** El intento: si está abierto, sus reactivos y lo contestado; si ya se entregó, el resultado. */
+    public function intento(Request $peticion, Intento $intento): JsonResponse
+    {
+        $this->exigirMioIntento($peticion, $intento);
+
+        if ($intento->entregado()) {
+            return response()->json($this->resultadoPayload($intento));
+        }
+
+        // El reloj se acabó: se cierra con lo que alcanzó, no se deja abierto para siempre.
+        if ($intento->expirado()) {
+            $this->examenes->entregar($intento);
+
+            return response()->json($this->resultadoPayload($intento->refresh()));
+        }
+
+        $examen = $intento->examen;
+        $actividad = $examen->actividad;
+        $contestadas = $intento->respuestas()->get()->keyBy('reactivo_id');
+
+        return response()->json([
+            'entregado' => false,
+            'intento' => [
+                'id' => $intento->id,
+                'numero' => $intento->numero,
+                'segundos_restantes' => $intento->expira_en !== null ? max(0, (int) now()->diffInSeconds($intento->expira_en, false)) : null,
+            ],
+            'actividad' => ['id' => $actividad->id, 'titulo' => $actividad->titulo],
+            'una_por_pagina' => (bool) $examen->una_por_pagina,
+            'reactivos' => $this->examenes->reactivosDelIntento($intento)
+                ->map(fn (Reactivo $r) => $r->paraResolver($examen->barajar_opciones) + [
+                    'puntos' => $examen->puntosDe($r),
+                    'respuesta' => $contestadas->get($r->id)?->valor['v'] ?? null,
+                ])->values()->all(),
+        ]);
+    }
+
+    /** Guarda una respuesta conforme se contesta (no califica todavía). */
+    public function responderExamen(Request $peticion, Intento $intento): JsonResponse
+    {
+        $this->exigirMioIntento($peticion, $intento);
+
+        $datos = $peticion->validate(['reactivo_id' => ['required', 'integer'], 'valor' => ['nullable']]);
+
+        try {
+            $this->examenes->guardarRespuesta($intento, (int) $datos['reactivo_id'], $datos['valor'] ?? null);
+        } catch (\RuntimeException $e) {
+            AvisoParaElUsuario::lanzar(422, $e->getMessage());
+        }
+
+        return response()->json(['guardado' => true]);
+    }
+
+    /** Adjunta el archivo de un reactivo de tipo archivo. */
+    public function responderArchivoExamen(Request $peticion, Intento $intento): JsonResponse
+    {
+        $this->exigirMioIntento($peticion, $intento);
+
+        $datos = $peticion->validate([
+            'reactivo_id' => ['required', 'integer'],
+            'archivo' => ['required', 'file', 'max:20480'],
+        ], [], ['archivo' => 'archivo']);
+
+        $subido = $peticion->file('archivo');
+        $ruta = $subido->store("examenes/{$intento->id}", 'local');
+
+        try {
+            $this->examenes->guardarRespuesta($intento, (int) $datos['reactivo_id'], ['ruta' => $ruta, 'nombre' => $subido->getClientOriginalName()]);
+        } catch (\RuntimeException $e) {
+            AvisoParaElUsuario::lanzar(422, $e->getMessage());
+        }
+
+        return response()->json(['guardado' => true]);
+    }
+
+    /** Cierra el intento y lo califica; devuelve el resultado (o que espera al docente). */
+    public function entregarExamen(Request $peticion, Intento $intento): JsonResponse
+    {
+        $this->exigirMioIntento($peticion, $intento);
+
+        if (! $intento->entregado()) {
+            $this->examenes->entregar($intento);
+        }
+
+        return response()->json($this->resultadoPayload($intento->refresh()));
+    }
+
+    /** @return array<string, mixed> */
+    private function resultadoPayload(Intento $intento): array
+    {
+        $resultado = $this->examenes->resultadoVisible($intento);
+
+        return [
+            'entregado' => true,
+            'intento' => ['id' => $intento->id, 'numero' => $intento->numero, 'requiere_revision' => (bool) $intento->requiere_revision],
+            'resultado' => $resultado,
+            // El detalle reactivo por reactivo sólo si ya se puede ver el resultado.
+            'detalle' => $resultado === null ? [] : $this->examenes->detalle($intento),
+        ];
+    }
+
+    /** El examen y la inscripción de quien entró, o 403/404. */
+    private function contextoExamen(Request $peticion, Actividad $actividad): array
+    {
+        $inscripcion = $this->miInscripcionParaActividad($peticion, $actividad);
+        $examen = $actividad->examen;
+        abort_if($examen === null, 404);
+        AvisoParaElUsuario::aMenosQue((bool) $actividad->publicada, 403, 'Ese examen todavía no está publicado.');
+
+        return [$examen, $inscripcion];
+    }
+
+    /** Que el intento sea de una de mis inscripciones. */
+    private function exigirMioIntento(Request $peticion, Intento $intento): void
+    {
+        $mio = Inscripcion::query()
+            ->whereKey($intento->inscripcion_id)
+            ->whereIn('matricula_oferta_id', $this->misMatriculas($peticion)->pluck('id'))
+            ->exists();
+
+        AvisoParaElUsuario::aMenosQue($mio, 403, 'Ese intento no es tuyo.');
     }
 
     /**
