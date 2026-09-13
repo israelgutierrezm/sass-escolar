@@ -4004,6 +4004,20 @@ Route::middleware([
                 ->whereNumber('intento')->middleware('can:ver-mis-cursos')->name('intento.archivo');
             Route::post('intentos/{intento}/entregar', [AlumnoApiController::class, 'entregarExamen'])
                 ->whereNumber('intento')->middleware('can:ver-mis-cursos')->name('intento.entregar');
+
+            // Foros: leer los temas y participar (abrir tema, responder, retirar
+            // lo propio). La regla (candado, foro/tema cerrado, participar cuenta
+            // como entregar) vive en `ForoDeActividad`, compartido con la web. El
+            // alumno NUNCA modera: retira sólo lo suyo.
+            Route::get('actividades/{actividad}/foro', [AlumnoApiController::class, 'foro'])
+                ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('foro');
+            Route::post('actividades/{actividad}/foro/temas', [AlumnoApiController::class, 'crearTemaForo'])
+                ->whereNumber('actividad')->middleware('can:ver-mis-cursos')->name('foro.tema');
+            Route::post('actividades/{actividad}/foro/temas/{tema}/responder', [AlumnoApiController::class, 'responderForo'])
+                ->whereNumber(['actividad', 'tema'])->middleware('can:ver-mis-cursos')->name('foro.responder');
+            Route::delete('actividades/{actividad}/foro/temas/{tema}', [AlumnoApiController::class, 'eliminarTemaForo'])
+                ->whereNumber(['actividad', 'tema'])->middleware('can:ver-mis-cursos')->name('foro.tema.eliminar');
+
             Route::get('historial', [AlumnoApiController::class, 'historial'])
                 ->middleware('can:ver-historial-academico')->name('historial');
             Route::get('estado-cuenta', [AlumnoApiController::class, 'estadoCuenta'])

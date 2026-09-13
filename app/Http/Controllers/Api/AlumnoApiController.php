@@ -9,12 +9,14 @@ use App\Http\Controllers\Concerns\AlcanceDelAlumno;
 use App\Http\Controllers\Concerns\OperaFinanzasEnLinea;
 use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
 use App\Exceptions\AvisoParaElUsuario;
+use App\Enums\TipoActividad;
 use App\Http\Controllers\Controller;
 use App\Models\Admisiones\DocumentoRequerido;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\ControlEscolar\DocumentoAlumno;
 use App\Models\ControlEscolar\Inscripcion;
 use App\Models\Lms\Actividad;
+use App\Models\Lms\ForoTema;
 use App\Models\Lms\Intento;
 use App\Models\Lms\Reactivo;
 use App\Services\ControlEscolar\DocumentosDelAlumno;
@@ -25,6 +27,7 @@ use App\Services\HistorialDelAlumno;
 use App\Services\Lms\AplicadorExamen;
 use App\Services\Lms\CursosDelAlumno;
 use App\Services\Lms\EntregaDeActividad;
+use App\Services\Lms\ForoDeActividad;
 use App\Services\Lms\Prerequisitos;
 use App\Services\Pagos\CobroEnLinea;
 use App\Services\Pagos\RegistroDeComprobante;
@@ -76,6 +79,7 @@ class AlumnoApiController extends Controller
         private readonly DocumentosDelAlumno $documentosAlumno,
         private readonly EntregaDeActividad $entregas,
         private readonly AplicadorExamen $examenes,
+        private readonly ForoDeActividad $foros,
         private readonly Prerequisitos $prerequisitos,
     ) {}
 
@@ -460,6 +464,94 @@ class AlumnoApiController extends Controller
         AvisoParaElUsuario::aMenosQue((bool) $actividad->publicada, 403, 'Ese examen todavía no está publicado.');
 
         return [$examen, $inscripcion];
+    }
+
+    // ── Aula: foros ─────────────────────────────────────────────────────────
+
+    /** El foro de una actividad: sus temas y, si se pide (`?tema=`), el abierto. */
+    public function foro(Request $peticion, Actividad $actividad): JsonResponse
+    {
+        $inscripcion = $this->contextoForo($peticion, $actividad);
+
+        $temas = $this->foros->temas($actividad);
+        $abierto = $temas->firstWhere('id', (int) $peticion->query('tema', '0'));
+
+        return response()->json([
+            'actividad' => [
+                'id' => $actividad->id,
+                'titulo' => $actividad->titulo,
+                'instrucciones' => $actividad->instrucciones,
+                'cierra_en' => $actividad->cierra_en?->format('d/m/Y H:i'),
+                'abierta' => $actividad->abierta(),
+                'pondera' => $actividad->pondera(),
+                'puntos' => (float) $actividad->puntos,
+                'bloqueada_por' => $this->prerequisitos->bloqueoPara($actividad, $inscripcion->id)?->titulo,
+            ],
+            // Para que la app sepa qué temas y respuestas son míos (y ofrezca retirarlos).
+            'yo' => $this->personaDe($peticion),
+            'temas' => $this->foros->listaTemas($temas),
+            'abierto' => $this->foros->detalle($abierto),
+        ]);
+    }
+
+    /** Abre un tema en el foro. */
+    public function crearTemaForo(Request $peticion, Actividad $actividad): JsonResponse
+    {
+        $this->contextoForo($peticion, $actividad);
+
+        $datos = $peticion->validate([
+            'titulo' => ['required', 'string', 'max:200'],
+            'cuerpo' => ['required', 'string', 'max:20000'],
+        ], [], ['cuerpo' => 'contenido']);
+
+        $r = $this->foros->crearTema($actividad, $this->personaDe($peticion), $datos['titulo'], $datos['cuerpo']);
+
+        if ($r['error'] !== null) {
+            AvisoParaElUsuario::lanzar(422, $r['error']);
+        }
+
+        return response()->json(['tema_id' => $r['tema']->id]);
+    }
+
+    /** Responde a un tema, o a una respuesta de primer nivel. */
+    public function responderForo(Request $peticion, Actividad $actividad, ForoTema $tema): JsonResponse
+    {
+        $this->contextoForo($peticion, $actividad);
+        abort_unless((int) $tema->actividad_id === $actividad->id, 404);
+
+        $datos = $peticion->validate([
+            'cuerpo' => ['required', 'string', 'max:20000'],
+            'responde_a_id' => ['nullable', 'integer'],
+        ], [], ['cuerpo' => 'respuesta']);
+
+        $r = $this->foros->responder($actividad, $tema, $this->personaDe($peticion), $datos['cuerpo'], $datos['responde_a_id'] ?? null);
+
+        if ($r['error'] !== null) {
+            AvisoParaElUsuario::lanzar(422, $r['error']);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Retira un tema PROPIO. El alumno nunca modera lo ajeno. */
+    public function eliminarTemaForo(Request $peticion, Actividad $actividad, ForoTema $tema): JsonResponse
+    {
+        $this->contextoForo($peticion, $actividad);
+        abort_unless((int) $tema->actividad_id === $actividad->id, 404);
+
+        $this->foros->eliminarTema($tema, $this->personaDe($peticion), false);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Mi inscripción en la materia del foro, con el foro publicado. */
+    private function contextoForo(Request $peticion, Actividad $actividad): Inscripcion
+    {
+        $inscripcion = $this->miInscripcionParaActividad($peticion, $actividad);
+        abort_unless($actividad->tipo === TipoActividad::Foro, 404);
+        AvisoParaElUsuario::aMenosQue((bool) $actividad->publicada, 403, 'Ese foro todavía no está publicado.');
+
+        return $inscripcion;
     }
 
     /** Que el intento sea de una de mis inscripciones. */
