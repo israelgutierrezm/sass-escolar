@@ -99,7 +99,14 @@ class Rubrica extends Model
      */
     public function estaEnUso(): bool
     {
-        return EntregaRubrica::query()
+        // Con `withTrashed`: una reentrega da de BAJA LÓGICA la evaluación de la
+        // rúbrica (`CalificadorPorRubrica::olvidar`), pero eso no descongela su
+        // estructura. Si calificó a alguien alguna vez, quitarle un criterio
+        // dejaría esa evaluación —que sigue existiendo, borrada— con un total que
+        // ya no cuadra, y una re-calificación posterior usaría otra estructura
+        // que la de un compañero. El congelamiento es permanente; para cambiarla
+        // se duplica.
+        return EntregaRubrica::withTrashed()
             ->whereIn('criterio_id', $this->criterios()->select('id'))
             ->exists();
     }

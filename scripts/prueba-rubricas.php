@@ -311,6 +311,22 @@ try {
     verificar('Ya está en uso', $rubrica->estaEnUso());
     verificar('Y su estructura deja de ser editable', ! $rubrica->estructuraEditable());
 
+    // Y SIGUE congelada aunque la única evaluación se reentregue: la reentrega
+    // da de baja lógica la evaluación de la rúbrica (`olvidar`), pero descongelar
+    // la estructura dejaría esa evaluación —que sigue existiendo, borrada— sin
+    // cuadrar, y una re-calificación usaría otra estructura que la de un compañero.
+    $calificador->olvidar($entrega->fresh());
+    $rubrica->refresh();
+    verificar('Tras reentregar su única evaluación, SIGUE en uso (congelada)', $rubrica->estaEnUso());
+    verificar('Y su estructura sigue sin ser editable', ! $rubrica->estructuraEditable());
+
+    // Se re-califica para que los pasos siguientes midan sobre una nota viva.
+    $calificador->aplicar($entrega->fresh(), [
+        ['criterio_id' => $criterioA->id, 'nivel_id' => $criterioA->niveles[0]->id, 'comentario' => null],
+        ['criterio_id' => $criterioB->id, 'nivel_id' => $criterioB->niveles[0]->id, 'comentario' => null],
+    ], null, $usuario->id);
+    $rubrica->refresh()->load('criterios.niveles');
+
     $catalogo->update(peticion('PUT', [
         'nombre' => 'P-Ensayo renombrada',
         'criterios' => [['titulo' => 'Uno solo', 'niveles' => [['titulo' => 'A', 'puntos' => 9], ['titulo' => 'B', 'puntos' => 0]]]],
