@@ -152,12 +152,19 @@ class FacturapiPac implements Pac
         }
 
         try {
-            $servicio->cancelarFactura($factura->facturapi_id, $motivo, $sustitutaId);
+            $respuesta = $servicio->cancelarFactura($factura->facturapi_id, $motivo, $sustitutaId);
         } catch (FacturapiRechazo $e) {
             return ResultadoTimbrado::rechazado($e->getMessage(), $e->codigo);
         }
 
-        return ResultadoTimbrado::cancelado();
+        // Facturapi devuelve el comprobante con su estado ya actualizado. Si el
+        // SAT dejó la cancelación EN PROCESO —montos que exigen que el receptor
+        // la acepte— el comprobante sigue `valid`: la cancelación está PEDIDA, no
+        // hecha. Ante cualquier respuesta que no sea un «canceled» claro se trata
+        // como pendiente, que es el lado seguro: no liberar los pagos.
+        $hecha = in_array($respuesta['status'] ?? null, ['canceled', 'cancelled'], true);
+
+        return ResultadoTimbrado::cancelado(pendiente: ! $hecha);
     }
 
     /**

@@ -503,15 +503,22 @@ class FacturaController extends Controller
             : Factura::find($datos['sustituta_id']);
 
         try {
-            $this->emisor->cancelar($factura, $datos['motivo'], $sustituta);
+            $pendiente = $this->emisor->cancelar($factura, $datos['motivo'], $sustituta);
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return back()->with(
-            'exito',
-            'Factura cancelada. Sus pagos vuelven a poderse facturar.'
-        );
+        return $pendiente
+            ? back()->with(
+                'advertencia',
+                'La cancelación quedó EN PROCESO: el receptor tiene que aceptarla. El comprobante '
+                .'sigue vigente y ampara sus pagos hasta que el SAT la cancele; la conciliación lo '
+                .'seguirá para que la finalices entonces.'
+            )
+            : back()->with(
+                'exito',
+                'Factura cancelada. Sus pagos vuelven a poderse facturar.'
+            );
     }
 
     /**

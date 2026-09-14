@@ -22,6 +22,7 @@ final readonly class ResultadoTimbrado
         public ?string $pdf = null,
         public ?string $error = null,
         public ?string $codigo = null,
+        public bool $pendiente = false,
     ) {}
 
     public static function timbrado(string $uuid, ?string $xml = null, ?string $pdf = null): self
@@ -29,9 +30,15 @@ final readonly class ResultadoTimbrado
         return new self(exito: true, uuid: $uuid, xml: $xml, pdf: $pdf);
     }
 
-    public static function cancelado(): self
+    /**
+     * El PAC aceptó la cancelación. `$pendiente` dice si el SAT la dejó EN
+     * PROCESO —montos que exigen que el receptor la acepte—: en ese caso el
+     * comprobante SIGUE VIVO ante el SAT hasta que se acepte, así que quien
+     * llama no debe darlo por cancelado ni liberar sus pagos todavía.
+     */
+    public static function cancelado(bool $pendiente = false): self
     {
-        return new self(exito: true);
+        return new self(exito: true, pendiente: $pendiente);
     }
 
     public static function rechazado(string $error, ?string $codigo = null): self

@@ -13,6 +13,7 @@ use App\Models\Finanzas\Factura;
 use App\Models\Finanzas\FacturaConcepto;
 use App\Models\Finanzas\Pago;
 use App\Services\Cfdi\ComplementoEducativo;
+use App\Services\Cfdi\EstadoEnElPac;
 use App\Services\Cfdi\Pac;
 use App\Support\PublicoEnGeneral;
 use Illuminate\Database\Eloquent\Builder;
@@ -151,8 +152,12 @@ class EmisorFactura
      * NO se borra ni se edita: la cancelación es un movimiento que se registra
      * encima. Una factura cancelada libera sus pagos, que vuelven a ser
      * facturables — es justo el caso de "se emitió con el RFC equivocado".
+     *
+     * Devuelve `true` cuando la cancelación quedó PENDIENTE de que el receptor
+     * la acepte: ahí el CFDI sigue vivo ante el SAT, así que NO se marca
+     * cancelada ni se liberan sus pagos, y quien llama tiene que decirlo.
      */
-    public function cancelar(Factura $factura, string $motivo, ?Factura $sustituta = null): void
+    public function cancelar(Factura $factura, string $motivo, ?Factura $sustituta = null): bool
     {
         if (! $factura->estaVigente()) {
             throw new RuntimeException('Solo se cancela una factura timbrada.');
@@ -195,11 +200,28 @@ class EmisorFactura
             throw new RuntimeException($resultado->error ?? 'El PAC rechazó la cancelación.');
         }
 
+        // El SAT dejó la cancelación EN PROCESO: el receptor tiene que aceptarla.
+        // NO se marca CANCELADA —eso la sacaría de `vivas()` y liberaría sus pagos
+        // para refacturarlos mientras el CFDI SIGUE VIVO ante el SAT, o sea el
+        // mismo dinero declarado dos veces—. Se registra el trámite; el
+        // comprobante sigue vigente y ampara sus pagos hasta que el SAT confirme.
+        // La conciliación lo detecta y se finaliza aquí de forma deliberada.
+        if ($resultado->pendiente) {
+            $factura->update([
+                'motivo_cancelacion' => $motivo,
+                'sat_estado_cancelacion' => EstadoEnElPac::CANCELACION_PENDIENTE,
+            ]);
+
+            return true;
+        }
+
         $factura->update([
             'estatus' => Factura::ESTATUS_CANCELADA,
             'cancelada_en' => now(),
             'motivo_cancelacion' => $motivo,
         ]);
+
+        return false;
     }
 
     /**
