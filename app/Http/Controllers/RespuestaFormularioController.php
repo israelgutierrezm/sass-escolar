@@ -11,17 +11,14 @@ use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Admisiones\RespuestaCampo;
 use App\Models\ControlEscolar\Docente;
-use App\Models\Formularios\CampoFormulario;
 use App\Models\Formularios\Formulario;
 use App\Models\Identidad\Persona;
 use App\Models\Identidad\Usuario;
+use App\Services\Formularios\CapturaDeFormulario;
 use App\Services\ResolutorFormularios;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -61,12 +58,10 @@ class RespuestaFormularioController extends Controller
     use AcotaPorCampus;
     use ResuelveMiSolicitud;
 
-    /** Lo que se acepta subir en un campo de tipo documento. */
-    private const FORMATOS = 'pdf,jpg,jpeg,png';
-
-    private const CARPETA = 'formularios';
-
-    public function __construct(private readonly ResolutorFormularios $resolutor) {}
+    public function __construct(
+        private readonly ResolutorFormularios $resolutor,
+        private readonly CapturaDeFormulario $captura,
+    ) {}
 
     // ── Desde la ficha: lo llena quien atiende ─────────────────────────────
 
@@ -83,7 +78,7 @@ class RespuestaFormularioController extends Controller
     public function guardar(Request $request, Aspirante $aspirante, Formulario $formulario): RedirectResponse
     {
         $this->autorizarCampus($request, $aspirante->campus_id);
-        $this->persistir($request, $aspirante, $formulario);
+        $this->captura->guardar($request, $aspirante, $formulario);
 
         return redirect("/aspirantes/{$aspirante->id}")->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
@@ -111,7 +106,7 @@ class RespuestaFormularioController extends Controller
     {
         $aspirante = $this->miSolicitud($request);
 
-        $this->persistir($request, $aspirante, $formulario);
+        $this->captura->guardar($request, $aspirante, $formulario);
 
         return redirect('/mi-solicitud')->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
@@ -139,7 +134,7 @@ class RespuestaFormularioController extends Controller
     public function guardarDeAlumno(Request $request, MatriculaOferta $alumno, Formulario $formulario): RedirectResponse
     {
         $this->autorizarCampus($request, $alumno->oferta?->campus_id);
-        $this->persistir($request, $alumno, $formulario);
+        $this->captura->guardar($request, $alumno, $formulario);
 
         return redirect("/escolar/alumnos/{$alumno->id}")
             ->with('exito', "«{$formulario->titulo}» quedó guardado.");
@@ -170,7 +165,7 @@ class RespuestaFormularioController extends Controller
 
     public function guardarDeDocente(Request $request, Docente $docente, Formulario $formulario): RedirectResponse
     {
-        $this->persistir($request, $this->personaDeDocente($docente), $formulario);
+        $this->captura->guardar($request, $this->personaDeDocente($docente), $formulario);
 
         return redirect("/escolar/docentes/{$docente->persona_id}")
             ->with('exito', "«{$formulario->titulo}» quedó guardado.");
@@ -195,7 +190,7 @@ class RespuestaFormularioController extends Controller
 
     public function guardarMiFormulario(Request $request, Formulario $formulario): RedirectResponse
     {
-        $this->persistir($request, $this->miPersona($request), $formulario);
+        $this->captura->guardar($request, $this->miPersona($request), $formulario);
 
         return redirect('/docencia/expediente')->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
@@ -210,7 +205,7 @@ class RespuestaFormularioController extends Controller
 
     public function guardarDeTutor(Request $request, Persona $tutor, Formulario $formulario): RedirectResponse
     {
-        $this->persistir($request, $tutor, $formulario);
+        $this->captura->guardar($request, $tutor, $formulario);
 
         return redirect("/padres-tutores/{$tutor->id}")
             ->with('exito', "«{$formulario->titulo}» quedó guardado.");
@@ -258,7 +253,7 @@ class RespuestaFormularioController extends Controller
 
     public function guardarPersonal(Request $request, Formulario $formulario): RedirectResponse
     {
-        $this->persistir($request, $this->miPersona($request), $formulario);
+        $this->captura->guardar($request, $this->miPersona($request), $formulario);
 
         return redirect('/mis-datos')->with('exito', "«{$formulario->titulo}» quedó guardado.");
     }
@@ -363,273 +358,13 @@ class RespuestaFormularioController extends Controller
      */
     private function pantalla(Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario, array $contexto, string $accion, string $baseDescarga): Response
     {
-        $this->abortarSiNoLeToca($titular, $formulario);
-
         return Inertia::render('Formularios/Captura', [
             'contexto' => $contexto,
-            'formulario' => [
-                'id' => $formulario->id,
-                'titulo' => $formulario->titulo,
-                'instruccion' => $formulario->instruccion,
-            ],
-            'campos' => $this->campos($formulario),
-            'respuestas' => $this->respuestasActuales($titular, $formulario),
+            ...$this->captura->ficha($titular, $formulario),
             'accion' => $accion,
             // De dónde bajar un archivo ya subido: `{base}/{id de la respuesta}`.
             'baseDescarga' => $baseDescarga,
         ]);
-    }
-
-    private function persistir(Request $request, Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario): void
-    {
-        $this->abortarSiNoLeToca($titular, $formulario);
-
-        $campos = $formulario->campos()->with('tipoCampo', 'opciones')->get();
-
-        $datos = $request->validate(
-            $this->reglas($campos, $request),
-            $this->mensajes($campos),
-            $this->atributos($campos),
-        );
-
-        DB::transaction(function () use ($campos, $datos, $titular, $formulario, $request) {
-            foreach ($campos as $campo) {
-                $this->guardarRespuesta($campo, $datos, $titular, $formulario, $request);
-            }
-        });
-    }
-
-    /**
-     * Un formulario que no le toca no se contesta.
-     *
-     * La ficha sólo enlaza los que sí, pero la URL lleva ids y se puede teclear:
-     * sin esto, cualquiera con permiso de editar aspirantes podría llenarle un
-     * formulario que la escuela nunca le asignó, y ese dato aparecería después
-     * en su expediente sin que nadie supiera de dónde salió.
-     */
-    private function abortarSiNoLeToca(Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario): void
-    {
-        abort_unless(
-            $this->resolutor->para($titular)->contains('id', $formulario->id),
-            404,
-            'Ese formulario no le corresponde.',
-        );
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    private function campos(Formulario $formulario): array
-    {
-        return $formulario->campos()->with('tipoCampo:id,clave,nombre', 'opciones')->get()
-            ->map(fn (CampoFormulario $c) => [
-                'id' => $c->id,
-                'pregunta' => $c->pregunta,
-                'descripcion' => $c->descripcion,
-                'tipo' => $c->tipoCampo?->clave,
-                'obligatorio' => $c->obligatorio,
-                'min' => $c->min === null ? null : (float) $c->min,
-                'max' => $c->max === null ? null : (float) $c->max,
-                // La condición viaja para que la pantalla esconda el campo en
-                // vivo; el servidor la vuelve a mirar al validar.
-                'campo_padre_id' => $c->campo_padre_id,
-                'condicional' => $c->condicional,
-                'opciones' => $c->opciones->map(fn ($o) => ['valor' => $o->valor, 'etiqueta' => $o->etiqueta]),
-            ])
-            ->all();
-    }
-
-    /**
-     * Lo ya contestado, listo para prellenar.
-     *
-     * @return array<string, mixed>
-     */
-    private function respuestasActuales(Aspirante|MatriculaOferta|Persona $titular, Formulario $formulario): array
-    {
-        return RespuestaCampo::query()
-            ->paraTitular($titular)
-            ->whereIn('campo_formulario_id', $formulario->campos()->pluck('id'))
-            ->get()
-            ->mapWithKeys(fn (RespuestaCampo $r) => [
-                (string) $r->campo_formulario_id => [
-                    'valor' => $this->decodificar($r->valor),
-                    // El id, no la ruta: la ruta es del disco privado y no le
-                    // sirve al navegador para nada, salvo para saber que hay
-                    // algo. Con el id puede pedir la descarga.
-                    'documento' => $r->documento_ruta === null ? null : $r->id,
-                ],
-            ])
-            ->all();
-    }
-
-    /**
-     * Las reglas, armadas desde la definición de cada campo.
-     *
-     * @param  Collection<int, CampoFormulario>  $campos
-     * @return array<string, mixed>
-     */
-    private function reglas($campos, Request $request): array
-    {
-        $reglas = [];
-
-        foreach ($campos as $campo) {
-            $clave = "campos.{$campo->id}";
-            $tipo = $campo->tipoCampo?->clave;
-
-            /*
-             * Un campo escondido por su condición NO es obligatorio.
-             *
-             * Se pregunta «¿fumas?» y sólo si contesta que sí aparece «¿cuántos
-             * al día?». Exigir el segundo cuando ni siquiera se muestra deja el
-             * formulario imposible de enviar, con un error señalando algo que
-             * no está en pantalla.
-             */
-            $visible = $this->condicionSeCumple($campo, $campos, $request);
-            $base = [$campo->obligatorio && $visible ? 'required' : 'nullable'];
-
-            $reglas[$clave] = match ($tipo) {
-                'numero' => array_filter([
-                    ...$base, 'numeric',
-                    $campo->min === null ? null : 'min:'.(float) $campo->min,
-                    $campo->max === null ? null : 'max:'.(float) $campo->max,
-                ]),
-                'email' => [...$base, 'email', 'max:150'],
-                'fecha' => [...$base, 'date'],
-                'checkbox' => ['boolean'],
-                'documento' => [...$base, 'file', 'mimes:'.self::FORMATOS, 'max:5120'],
-                'multiselect' => [...$base, 'array'],
-                'select', 'radio' => [...$base, Rule::in($campo->opciones->pluck('valor'))],
-                default => [...$base, 'string', 'max:500'],
-            };
-
-            if ($tipo === 'multiselect') {
-                $reglas["{$clave}.*"] = [Rule::in($campo->opciones->pluck('valor'))];
-            }
-
-            // El patrón que la escuela definió, con su propio mensaje.
-            if (filled($campo->regex) && ! in_array($tipo, ['documento', 'multiselect', 'checkbox'], true)) {
-                $reglas[$clave][] = 'regex:/'.$campo->regex.'/';
-            }
-        }
-
-        return $reglas;
-    }
-
-    /** ¿Se cumple la condición que hace visible a este campo? */
-    private function condicionSeCumple(CampoFormulario $campo, $campos, Request $request): bool
-    {
-        if ($campo->campo_padre_id === null) {
-            return true;
-        }
-
-        return (string) $request->input("campos.{$campo->campo_padre_id}") === (string) $campo->condicional;
-    }
-
-    /**
-     * @param  Collection<int, CampoFormulario>  $campos
-     * @return array<string, string>
-     */
-    private function mensajes($campos): array
-    {
-        $mensajes = [];
-
-        foreach ($campos as $campo) {
-            if (filled($campo->mensaje_error)) {
-                // El mensaje que la escuela escribió gana al genérico: sabe qué
-                // formato espera y por qué, cosa que «el formato es inválido» no
-                // le dice a nadie.
-                $mensajes["campos.{$campo->id}.regex"] = $campo->mensaje_error;
-            }
-        }
-
-        return $mensajes;
-    }
-
-    /**
-     * @param  Collection<int, CampoFormulario>  $campos
-     * @return array<string, string>
-     */
-    private function atributos($campos): array
-    {
-        return $campos
-            ->mapWithKeys(fn (CampoFormulario $c) => ["campos.{$c->id}" => mb_strtolower($c->pregunta)])
-            ->all();
-    }
-
-    /**
-     * Una fila por campo. Se reescribe la que hubiera: la respuesta actual es
-     * la que vale, y guardar el historial de lo que alguien tecleó y corrigió
-     * antes de enviar no le sirve a nadie.
-     *
-     * @param  array<string, mixed>  $datos
-     */
-    private function guardarRespuesta(
-        CampoFormulario $campo,
-        array $datos,
-        Aspirante|MatriculaOferta|Persona $titular,
-        Formulario $formulario,
-        Request $request,
-    ): void {
-        $valor = $datos['campos'][$campo->id] ?? null;
-        $llave = [...$this->llaveTitular($titular), 'campo_formulario_id' => $campo->id];
-
-        if ($campo->tipoCampo?->clave === 'documento') {
-            $archivo = $request->file("campos.{$campo->id}");
-
-            // Sin archivo nuevo no se toca lo que ya estaba: reguardar el
-            // formulario para corregir otra pregunta no puede borrar un acta
-            // que ya se había subido.
-            if ($archivo === null) {
-                return;
-            }
-
-            $personaId = $this->personaDe($titular);
-
-            RespuestaCampo::updateOrCreate($llave, [
-                'persona_id' => $personaId,
-                'formulario_version' => $formulario->version,
-                'documento_ruta' => $archivo->store(self::CARPETA.'/'.$personaId, 'local'),
-            ]);
-
-            return;
-        }
-
-        RespuestaCampo::updateOrCreate($llave, [
-            'persona_id' => $this->personaDe($titular),
-            'formulario_version' => $formulario->version,
-            'valor' => $this->codificar($valor),
-        ]);
-    }
-
-    /**
-     * En qué columnas cuelga la respuesta.
-     *
-     * `respuestas_campo` admite como titular un aspirante, una matrícula o la
-     * persona a secas. Las dos primeras son la CAPACIDAD en que se contestó, y
-     * existen porque quien tiene dos matrículas puede responder distinto en
-     * cada una; el expediente se llena antes de existir la matrícula y se
-     * re-liga a ella al convertir, así que lo contestado siendo aspirante sigue
-     * ahí después.
-     *
-     * Las dos van en la llave aunque sólo una lleve valor: sin el null
-     * explícito, guardar como docente encontraría —y pisaría— la fila que esa
-     * misma persona contestó siendo aspirante.
-     *
-     * @return array<string, int|null>
-     */
-    private function llaveTitular(Aspirante|MatriculaOferta|Persona $titular): array
-    {
-        return match (true) {
-            $titular instanceof Aspirante => ['aspirante_id' => $titular->id, 'matricula_oferta_id' => null],
-            $titular instanceof MatriculaOferta => ['matricula_oferta_id' => $titular->id, 'aspirante_id' => null],
-            default => ['persona_id' => $titular->id, 'aspirante_id' => null, 'matricula_oferta_id' => null],
-        };
-    }
-
-    /** De quién es la respuesta. `persona_id` va en toda fila, sea quien sea el titular. */
-    private function personaDe(Aspirante|MatriculaOferta|Persona $titular): int
-    {
-        return $titular instanceof Persona ? $titular->id : $titular->persona_id;
     }
 
     /**
@@ -652,30 +387,5 @@ class RespuestaFormularioController extends Controller
 
         return Persona::find($usuario->persona_id)
             ?? AvisoParaElUsuario::lanzar(403, 'Tu cuenta todavía no está ligada a tus datos. Pídele a la escuela que la complete.');
-    }
-
-    /**
-     * `valor` es una columna de texto y una selección múltiple son varios.
-     * Se guardan como JSON para poder recuperarlos como lista sin adivinar
-     * separadores —una opción con coma dentro rompería un `implode(',')`—.
-     */
-    private function codificar(mixed $valor): ?string
-    {
-        if ($valor === null || $valor === '') {
-            return null;
-        }
-
-        return is_array($valor) ? json_encode(array_values($valor)) : (string) $valor;
-    }
-
-    private function decodificar(?string $valor): mixed
-    {
-        if ($valor === null) {
-            return null;
-        }
-
-        $decodificado = json_decode($valor, true);
-
-        return is_array($decodificado) ? $decodificado : $valor;
     }
 }
