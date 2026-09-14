@@ -512,6 +512,9 @@ class DocenteApiController extends Controller
         return response()->json([
             'actividades' => $actividades->map(fn (Actividad $a) => [
                 'id' => $a->id,
+                // El tipo enruta en la app: un examen se califica a mano y un foro
+                // se modera, cada uno en su pantalla; lo demás es entrega directa.
+                'tipo' => $a->tipo->value,
                 'titulo' => $a->titulo,
                 'puntos' => (float) $a->puntos,
                 // La nota de una actividad con rúbrica NO se teclea: sale de los
