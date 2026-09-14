@@ -214,8 +214,14 @@ class SolicitudFacturaController extends Controller
     }
 
     /** La escuela emite el CFDI de una solicitud. */
-    public function emitir(SolicitudFactura $solicitud): RedirectResponse
+    public function emitir(Request $request, SolicitudFactura $solicitud): RedirectResponse
     {
+        // Emitir un CFDI es un acto fiscal: se acota al campus de quien lo pide.
+        // El id llega por la URL, así que acotar el listado no basta.
+        $matricula = $solicitud->matriculaOferta;
+        abort_unless($matricula !== null, 404);
+        $this->autorizarMatricula($request, $matricula);
+
         try {
             $factura = $this->gestor->emitir($solicitud);
         } catch (AvisoParaElUsuario|RuntimeException $e) {
@@ -229,6 +235,10 @@ class SolicitudFacturaController extends Controller
     /** Se rechaza con motivo, que es lo único que quien pidió puede usar. */
     public function rechazar(Request $request, SolicitudFactura $solicitud): RedirectResponse
     {
+        $matricula = $solicitud->matriculaOferta;
+        abort_unless($matricula !== null, 404);
+        $this->autorizarMatricula($request, $matricula);
+
         $datos = $request->validate([
             'motivo' => ['required', 'string', 'min:5', 'max:500'],
         ], [

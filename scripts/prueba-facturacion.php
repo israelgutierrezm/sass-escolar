@@ -367,7 +367,7 @@ try {
             $p->headers->set('X-Inertia-Version', '');
             app()->instance('request', $p);
 
-            return $ctrl->facturables($matricula)->toResponse($p)->getContent();
+            return $ctrl->facturables($p, $matricula)->toResponse($p)->getContent();
         })(),
         true
     )['props'];

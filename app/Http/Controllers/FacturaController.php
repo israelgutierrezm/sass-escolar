@@ -128,8 +128,24 @@ class FacturaController extends Controller
         return response()->download($paquete['ruta'], $paquete['nombre'])->deleteFileAfterSend(true);
     }
 
-    public function show(Factura $factura): Response
+    /**
+     * Corta una acción sobre una factura fuera del alcance de campus. El id
+     * llega por la URL, así que acotar el listado (index/descargarLote) no basta.
+     * Una factura GLOBAL no cuelga de una matrícula: ahí no hay campus que exigir.
+     */
+    private function autorizarFactura(Request $request, Factura $factura): void
     {
+        $factura->loadMissing('matriculaOferta.oferta:id,campus_id');
+
+        if ($factura->matriculaOferta !== null) {
+            $this->autorizarMatricula($request, $factura->matriculaOferta);
+        }
+    }
+
+    public function show(Request $request, Factura $factura): Response
+    {
+        $this->autorizarFactura($request, $factura);
+
         $factura->load([
             'conceptos.pago.metodoPago:id,nombre',
             'matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',
@@ -248,8 +264,10 @@ class FacturaController extends Controller
     }
 
     /** Los pagos que todavía se pueden facturar de una matrícula. */
-    public function facturables(MatriculaOferta $matricula): Response
+    public function facturables(Request $request, MatriculaOferta $matricula): Response
     {
+        $this->autorizarMatricula($request, $matricula);
+
         return Inertia::render('Finanzas/Facturas/Emitir', [
             'matricula' => [
                 'id' => $matricula->id,
@@ -287,6 +305,8 @@ class FacturaController extends Controller
 
     public function store(Request $request, MatriculaOferta $matricula): RedirectResponse
     {
+        $this->autorizarMatricula($request, $matricula);
+
         $datos = $request->validate([
             'pago_ids' => ['required', 'array', 'min:1'],
             'pago_ids.*' => [Rule::exists('pagos', 'id')],
@@ -415,6 +435,8 @@ class FacturaController extends Controller
      */
     public function notaCredito(Request $request, Factura $factura): RedirectResponse
     {
+        $this->autorizarFactura($request, $factura);
+
         $datos = $request->validate([
             // Obligatorio: reduce lo declarado al SAT, y sin la razón escrita
             // nadie puede explicar dentro de un año por qué la escuela declaró
@@ -451,6 +473,8 @@ class FacturaController extends Controller
      */
     public function refacturar(Request $request, Factura $factura): RedirectResponse
     {
+        $this->autorizarFactura($request, $factura);
+
         $datos = $request->validate([
             'rfc' => ['required', 'string', 'min:12', 'max:13'],
             'razon_social' => ['required', 'string', 'max:255'],
@@ -473,8 +497,10 @@ class FacturaController extends Controller
     }
 
     /** Reintenta un timbrado que el PAC rechazó o que no alcanzó a salir. */
-    public function reintentar(Factura $factura): RedirectResponse
+    public function reintentar(Request $request, Factura $factura): RedirectResponse
     {
+        $this->autorizarFactura($request, $factura);
+
         if ($factura->esFiscal()) {
             return back()->with('error', 'Esta factura ya está timbrada.');
         }
@@ -488,6 +514,8 @@ class FacturaController extends Controller
 
     public function cancelar(Request $request, Factura $factura): RedirectResponse
     {
+        $this->autorizarFactura($request, $factura);
+
         $datos = $request->validate([
             'motivo' => ['required', Rule::in([
                 Factura::MOTIVO_CON_RELACION,
@@ -525,8 +553,10 @@ class FacturaController extends Controller
      * Solo se borra lo que nunca fue fiscal. Un CFDI timbrado no se elimina de
      * la base aunque esté cancelado: es el respaldo de lo que se declaró.
      */
-    public function destroy(Factura $factura): RedirectResponse
+    public function destroy(Request $request, Factura $factura): RedirectResponse
     {
+        $this->autorizarFactura($request, $factura);
+
         if (! $factura->esEditable()) {
             return back()->with('error', 'Una factura timbrada no se elimina: se cancela.');
         }
@@ -537,8 +567,10 @@ class FacturaController extends Controller
     }
 
     /** Descarga el XML o el PDF del disco privado. Nunca desde `public/`. */
-    public function descargar(Factura $factura, string $tipo): StreamedResponse
+    public function descargar(Request $request, Factura $factura, string $tipo): StreamedResponse
     {
+        $this->autorizarFactura($request, $factura);
+
         abort_unless(in_array($tipo, ['xml', 'pdf'], true), 404);
 
         $ruta = $tipo === 'xml' ? $factura->xml_ruta : $factura->pdf_ruta;

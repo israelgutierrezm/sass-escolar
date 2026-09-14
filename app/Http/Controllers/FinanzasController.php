@@ -9,6 +9,7 @@ use App\Configuracion\CatalogoAjustes;
 use App\Documentos\ReciboDeCaja;
 use App\Http\Controllers\Concerns\AcotaPorCampus;
 use App\Http\Controllers\Concerns\VeLaCarteraDelAlumno;
+use App\Models\Admisiones\Aspirante;
 use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\BitacoraSituacionFinanciera;
@@ -309,9 +310,27 @@ class FinanzasController extends Controller
         ]);
     }
 
-    /** Corre el motor de cobro para esta matrícula. Es idempotente: repetirlo no duplica. */
-    public function generar(MatriculaOferta $matricula): RedirectResponse
+    /**
+     * Corta una acción sobre un pago o adeudo cuyo TITULAR —matrícula o
+     * aspirante— cae fuera del alcance de campus de quien la pide. El id llega
+     * por la URL, así que acotar el listado no basta (la misma lección que
+     * `exigirQuePuedaVerLaCuenta`, aquí para el titular dual).
+     */
+    private function autorizarTitular(Request $request, ?MatriculaOferta $matricula, ?Aspirante $aspirante): void
     {
+        if ($matricula !== null) {
+            $matricula->loadMissing('oferta:id,campus_id');
+            $this->autorizarMatricula($request, $matricula);
+        } elseif ($aspirante !== null) {
+            $this->autorizarCampus($request, $aspirante->campus_id);
+        }
+    }
+
+    /** Corre el motor de cobro para esta matrícula. Es idempotente: repetirlo no duplica. */
+    public function generar(Request $request, MatriculaOferta $matricula): RedirectResponse
+    {
+        $this->exigirQuePuedaVerLaCuenta($request, $matricula);
+
         $resultado = $this->generador->generarPara($matricula);
         $this->recargos->recalcularCartera($matricula->id);
 
@@ -332,6 +351,8 @@ class FinanzasController extends Controller
 
     public function registrarPago(Request $request, MatriculaOferta $matricula): RedirectResponse
     {
+        $this->exigirQuePuedaVerLaCuenta($request, $matricula);
+
         $datos = $request->validate([
             'metodo_pago_id' => ['required', Rule::exists('metodos_pago', 'id')],
             'monto' => ['required', 'numeric', 'min:0.01'],
@@ -383,8 +404,10 @@ class FinanzasController extends Controller
             );
     }
 
-    public function confirmarPago(Pago $pago): RedirectResponse
+    public function confirmarPago(Request $request, Pago $pago): RedirectResponse
     {
+        $this->autorizarTitular($request, $pago->matriculaOferta, $pago->aspirante);
+
         $this->registrador->confirmar($pago);
 
         return back()->with('exito', 'Pago confirmado. Los adeudos que cubre quedaron liquidados.');
@@ -409,7 +432,11 @@ class FinanzasController extends Controller
     {
         abort_unless($pago->estaCobrado(), 404);
 
-        if (! $request->user()->can('registrar-pagos')) {
+        if ($request->user()->can('registrar-pagos')) {
+            // El personal saca cualquier recibo, pero acotado a SUS campus: un
+            // cajero de un plantel no imprime el de otro.
+            $this->autorizarTitular($request, $pago->matriculaOferta, $pago->aspirante);
+        } else {
             $matricula = $pago->matriculaOferta;
 
             // Un pago de aspirante no tiene matrícula que consultar: ése sólo lo
@@ -423,6 +450,8 @@ class FinanzasController extends Controller
 
     public function revertirPago(Request $request, Pago $pago): RedirectResponse
     {
+        $this->autorizarTitular($request, $pago->matriculaOferta, $pago->aspirante);
+
         $datos = $request->validate([
             'estatus' => ['required', Rule::in([Pago::ESTATUS_FALLIDO, Pago::ESTATUS_REEMBOLSADO])],
             'motivo' => ['nullable', 'string', 'max:255'],
@@ -446,6 +475,8 @@ class FinanzasController extends Controller
      */
     public function resolverAdeudo(Request $request, Adeudo $adeudo): RedirectResponse
     {
+        $this->autorizarTitular($request, $adeudo->matriculaOferta, $adeudo->aspirante);
+
         $datos = $request->validate([
             'estatus' => ['required', Rule::in([Adeudo::ESTATUS_CONDONADO, Adeudo::ESTATUS_CANCELADO])],
             // Condonar es regalar dinero de la escuela. Sin motivo, la pregunta
@@ -492,6 +523,8 @@ class FinanzasController extends Controller
     /** Cambia la situación financiera de la matrícula (es lo que bloquea trámites). */
     public function cambiarSituacion(Request $request, MatriculaOferta $matricula): RedirectResponse
     {
+        $this->exigirQuePuedaVerLaCuenta($request, $matricula);
+
         $datos = $request->validate([
             'situacion_id' => ['required', Rule::exists('situaciones_pago', 'id')],
             'motivo' => ['nullable', 'string', 'max:255'],

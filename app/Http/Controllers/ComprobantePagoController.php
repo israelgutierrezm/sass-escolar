@@ -112,7 +112,10 @@ class ComprobantePagoController extends Controller
     {
         $estado = $request->query('estado', ComprobantePago::PENDIENTE);
 
-        $comprobantes = ComprobantePago::query()
+        // Acotado a los campus de quien revisa: sin esto, la cola de comprobantes
+        // —con nombre, matrícula, programa, monto y referencia— salía de toda la
+        // escuela aunque el rol esté restringido a un plantel.
+        $comprobantes = $this->acotarMatriculas(ComprobantePago::query(), $request, 'matriculaOferta')
             ->with(['matriculaOferta.persona', 'matriculaOferta.oferta.programaAcademico:id,nombre', 'cuenta:id,nombre,banco', 'revisor.persona'])
             ->when(
                 in_array($estado, [ComprobantePago::PENDIENTE, ComprobantePago::APROBADO, ComprobantePago::RECHAZADO], true),
@@ -149,6 +152,12 @@ class ComprobantePagoController extends Controller
 
     public function aprobar(Request $request, ComprobantePago $comprobante): RedirectResponse
     {
+        // Aprobar es cobrar, así que se acota al campus: un revisor de un plantel
+        // no registra el pago de otro. El id llega por la URL.
+        $matricula = $comprobante->matriculaOferta;
+        abort_unless($matricula !== null, 404);
+        $this->autorizarMatricula($request, $matricula);
+
         $datos = $request->validate([
             // Se puede corregir al revisar: el banco manda sobre lo declarado.
             'monto' => ['nullable', 'numeric', 'min:0.01'],
@@ -161,6 +170,10 @@ class ComprobantePagoController extends Controller
 
     public function rechazar(Request $request, ComprobantePago $comprobante): RedirectResponse
     {
+        $matricula = $comprobante->matriculaOferta;
+        abort_unless($matricula !== null, 404);
+        $this->autorizarMatricula($request, $matricula);
+
         $datos = $request->validate([
             'motivo' => ['required', 'string', 'min:5', 'max:500'],
         ], [
