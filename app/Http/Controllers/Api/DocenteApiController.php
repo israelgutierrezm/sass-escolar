@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\TipoActividad;
 use App\Exceptions\AvisoParaElUsuario;
 use App\Http\Controllers\Controller;
 use App\Models\Academico\EsquemaEvaluacion;
@@ -19,6 +20,8 @@ use App\Models\Identidad\Usuario;
 use App\Models\Lms\Actividad;
 use App\Models\Lms\Curso;
 use App\Models\Lms\Entrega;
+use App\Models\Lms\ForoTema;
+use App\Models\Lms\Respuesta;
 use App\Services\AsentadorActa;
 use App\Services\Asistencia\PaseDeLista;
 use App\Services\CalculadoraCalificacion;
@@ -26,8 +29,10 @@ use App\Services\CalendarioCaptura;
 use App\Services\CapturaDeCalificaciones;
 use App\Services\Docencia\DocumentosDelDocente;
 use App\Services\Familia\GestorDeCitas;
+use App\Services\Lms\AplicadorExamen;
 use App\Services\Lms\CalificacionDeEntrega;
 use App\Services\Lms\CalificadorPorRubrica;
+use App\Services\Lms\ForoDeActividad;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -64,6 +69,8 @@ class DocenteApiController extends Controller
         private readonly GestorDeCitas $gestorCitas,
         private readonly CalificacionDeEntrega $calificacionEntrega,
         private readonly CalificadorPorRubrica $porRubrica,
+        private readonly AplicadorExamen $examenes,
+        private readonly ForoDeActividad $foros,
     ) {}
 
     /** Las materias que imparte, con su grupo, horario y cuántos alumnos. */
@@ -575,6 +582,162 @@ class DocenteApiController extends Controller
         if (! $esMia) {
             throw new AccessDeniedHttpException('Esa entrega no es de una materia tuya.');
         }
+    }
+
+    // ── Aula: calificar exámenes a mano ─────────────────────────────────────
+
+    /**
+     * Los intentos entregados de un examen mío, con lo que espera revisión
+     * arriba: la pantalla sirve para revisar, no para consultar historial. Reusa
+     * `AplicadorExamen::intentosParaRevisar`, el mismo que la web.
+     */
+    public function examenIntentos(Request $peticion, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): JsonResponse
+    {
+        $this->autorizarMateria($peticion, $asignaturaGrupo);
+        abort_unless($actividad->curso?->asignatura_grupo_id === $asignaturaGrupo->id, 404);
+
+        $examen = $actividad->examen;
+        abort_if($examen === null, 404);
+
+        return response()->json([
+            'actividad' => ['id' => $actividad->id, 'titulo' => $actividad->titulo, 'puntos' => (float) $actividad->puntos],
+            'intentos' => $this->examenes->intentosParaRevisar($examen),
+        ]);
+    }
+
+    /**
+     * Pone puntos a una respuesta que la máquina no pudo calificar (abierta o de
+     * archivo). Si con eso no queda ninguna pendiente, el intento se cierra y su
+     * nota entra sola —lo decide `calificarAMano`—.
+     */
+    public function calificarRespuesta(Request $peticion, Respuesta $respuesta): JsonResponse
+    {
+        $this->autorizarRespuesta($peticion, $respuesta);
+
+        $datos = $peticion->validate([
+            'puntos' => ['required', 'numeric', 'min:0'],
+            'comentario' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $intento = $this->examenes->calificarAMano($respuesta, (float) $datos['puntos'], $datos['comentario'] ?? null);
+
+        return response()->json(['ok' => true, 'requiere_revision' => (bool) $intento->requiere_revision]);
+    }
+
+    // ── Aula: moderar (y participar en) foros ───────────────────────────────
+
+    /** El foro de una actividad mía: temas y, con `?tema=`, el abierto. Soy moderador. */
+    public function foro(Request $peticion, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): JsonResponse
+    {
+        $this->autorizarForo($peticion, $asignaturaGrupo, $actividad);
+
+        $temas = $this->foros->temas($actividad);
+        $abierto = $temas->firstWhere('id', (int) $peticion->query('tema', '0'));
+
+        return response()->json([
+            'actividad' => [
+                'id' => $actividad->id,
+                'titulo' => $actividad->titulo,
+                'instrucciones' => $actividad->instrucciones,
+                'cierra_en' => $actividad->cierra_en?->format('d/m/Y H:i'),
+                'abierta' => $actividad->abierta(),
+                'pondera' => $actividad->pondera(),
+                'puntos' => (float) $actividad->puntos,
+                // El docente no está sujeto al candado de prerrequisitos.
+                'bloqueada_por' => null,
+            ],
+            'yo' => $this->personaId($peticion),
+            'moderador' => true,
+            'temas' => $this->foros->listaTemas($temas),
+            'abierto' => $this->foros->detalle($abierto),
+        ]);
+    }
+
+    /** Abre un tema (el docente participa como uno más). */
+    public function crearTemaForo(Request $peticion, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): JsonResponse
+    {
+        $this->autorizarForo($peticion, $asignaturaGrupo, $actividad);
+
+        $datos = $peticion->validate([
+            'titulo' => ['required', 'string', 'max:200'],
+            'cuerpo' => ['required', 'string', 'max:20000'],
+        ], [], ['cuerpo' => 'contenido']);
+
+        $r = $this->foros->crearTema($actividad, $this->personaId($peticion), $datos['titulo'], $datos['cuerpo']);
+        if ($r['error'] !== null) {
+            AvisoParaElUsuario::lanzar(422, $r['error']);
+        }
+
+        return response()->json(['tema_id' => $r['tema']->id]);
+    }
+
+    /** Responde a un tema o a una respuesta de primer nivel. */
+    public function responderForo(Request $peticion, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad, ForoTema $tema): JsonResponse
+    {
+        $this->autorizarForo($peticion, $asignaturaGrupo, $actividad);
+        abort_unless((int) $tema->actividad_id === $actividad->id, 404);
+
+        $datos = $peticion->validate([
+            'cuerpo' => ['required', 'string', 'max:20000'],
+            'responde_a_id' => ['nullable', 'integer'],
+        ], [], ['cuerpo' => 'respuesta']);
+
+        $r = $this->foros->responder($actividad, $tema, $this->personaId($peticion), $datos['cuerpo'], $datos['responde_a_id'] ?? null);
+        if ($r['error'] !== null) {
+            AvisoParaElUsuario::lanzar(422, $r['error']);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Fija o cierra un tema (moderación; no depende de que el foro siga abierto). */
+    public function moderarForo(Request $peticion, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad, ForoTema $tema): JsonResponse
+    {
+        $this->autorizarForo($peticion, $asignaturaGrupo, $actividad);
+        abort_unless((int) $tema->actividad_id === $actividad->id, 404);
+
+        $datos = $peticion->validate([
+            'fijado' => ['boolean'],
+            'cerrado' => ['boolean'],
+        ]);
+
+        $this->foros->moderar($tema, $datos);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Retira un tema. El docente modera: puede el suyo y el ajeno (`moderador: true`). */
+    public function eliminarTemaForo(Request $peticion, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad, ForoTema $tema): JsonResponse
+    {
+        $this->autorizarForo($peticion, $asignaturaGrupo, $actividad);
+        abort_unless((int) $tema->actividad_id === $actividad->id, 404);
+
+        $this->foros->eliminarTema($tema, $this->personaId($peticion), true);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Que la respuesta sea de un examen de una materia que imparto. */
+    private function autorizarRespuesta(Request $peticion, Respuesta $respuesta): void
+    {
+        $agId = $respuesta->intento?->examen?->actividad?->curso?->asignatura_grupo_id;
+
+        $esMia = $agId !== null && AsignaturaGrupo::query()
+            ->whereKey($agId)
+            ->whereHas('docentes', fn ($q) => $q->where('docentes.persona_id', $this->personaId($peticion)))
+            ->exists();
+
+        if (! $esMia) {
+            throw new AccessDeniedHttpException('Esa respuesta no es de una materia tuya.');
+        }
+    }
+
+    /** Materia propia (por asignación) y la actividad es un foro de ella. */
+    private function autorizarForo(Request $peticion, AsignaturaGrupo $asignaturaGrupo, Actividad $actividad): void
+    {
+        $this->autorizarMateria($peticion, $asignaturaGrupo);
+        abort_unless($actividad->curso?->asignatura_grupo_id === $asignaturaGrupo->id, 404);
+        abort_unless($actividad->tipo === TipoActividad::Foro, 404);
     }
 
     /**

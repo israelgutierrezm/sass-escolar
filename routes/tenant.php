@@ -4162,6 +4162,28 @@ Route::middleware([
             Route::put('entregas/{entrega}/calificar', [DocenteApiController::class, 'calificarEntrega'])
                 ->whereNumber('entrega')->middleware('can:capturar-calificaciones')->name('entregas.calificar');
 
+            // Aula: calificar a mano los exámenes que lo piden (reactivos abiertos
+            // y de archivo). Los intentos por revisar y poner puntos a una
+            // respuesta; reusa AplicadorExamen. El alcance por asignación → 403.
+            Route::get('materias/{asignaturaGrupo}/examenes/{actividad}/intentos', [DocenteApiController::class, 'examenIntentos'])
+                ->whereNumber(['asignaturaGrupo', 'actividad'])->middleware('can:capturar-calificaciones')->name('examen.intentos');
+            Route::put('respuestas/{respuesta}/calificar', [DocenteApiController::class, 'calificarRespuesta'])
+                ->whereNumber('respuesta')->middleware('can:capturar-calificaciones')->name('respuesta.calificar');
+
+            // Aula: moderar (fijar/cerrar/borrar) y participar en el foro de una
+            // materia mía, sobre ForoDeActividad. Ser docente de la materia da la
+            // moderación (autorizarForo); una materia ajena → 403.
+            Route::get('materias/{asignaturaGrupo}/foro/{actividad}', [DocenteApiController::class, 'foro'])
+                ->whereNumber(['asignaturaGrupo', 'actividad'])->middleware('can:ver-mis-materias')->name('foro');
+            Route::post('materias/{asignaturaGrupo}/foro/{actividad}/temas', [DocenteApiController::class, 'crearTemaForo'])
+                ->whereNumber(['asignaturaGrupo', 'actividad'])->middleware('can:ver-mis-materias')->name('foro.tema');
+            Route::post('materias/{asignaturaGrupo}/foro/{actividad}/temas/{tema}/responder', [DocenteApiController::class, 'responderForo'])
+                ->whereNumber(['asignaturaGrupo', 'actividad', 'tema'])->middleware('can:ver-mis-materias')->name('foro.responder');
+            Route::post('materias/{asignaturaGrupo}/foro/{actividad}/temas/{tema}/moderar', [DocenteApiController::class, 'moderarForo'])
+                ->whereNumber(['asignaturaGrupo', 'actividad', 'tema'])->middleware('can:ver-mis-materias')->name('foro.moderar');
+            Route::delete('materias/{asignaturaGrupo}/foro/{actividad}/temas/{tema}', [DocenteApiController::class, 'eliminarTemaForo'])
+                ->whereNumber(['asignaturaGrupo', 'actividad', 'tema'])->middleware('can:ver-mis-materias')->name('foro.tema.eliminar');
+
             // Mi expediente: los documentos que la escuela le pide al docente,
             // subir/reemplazar y retirar (lo aceptado no se retira desde aquí).
             // El mismo permiso que la web (`editar-mi-expediente`); de quién es
