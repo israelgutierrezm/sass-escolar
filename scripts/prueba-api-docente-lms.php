@@ -204,6 +204,18 @@ try {
     } else {
         verificar('OMITIDO: no hay una materia ajena', false, 'escenario incompleto');
     }
+
+    // ── 6. El listado de entregas trae el TIPO de cada actividad ─────────────
+    // La app enruta por él: un examen se califica a mano y un foro se modera,
+    // cada uno en su pantalla. Sin este campo todo caería como entrega directa.
+    echo PHP_EOL.'6. entregas: cada actividad viaja con su tipo'.PHP_EOL;
+
+    $ent = json_decode($ctrl->entregas(req($docente, [], 'GET'), $ag)->getContent(), true);
+    $porId = collect($ent['actividades'] ?? [])->keyBy('id');
+    verificar('La entrega del examen se marca como examen',
+        ($porId[$actExamen->id]['tipo'] ?? null) === $actExamen->tipo->value);
+    verificar('La entrega del foro se marca como foro',
+        ($porId[$actForo->id]['tipo'] ?? null) === $actForo->tipo->value);
 } catch (Throwable $e) {
     verificar('La suite corrió hasta el final sin morir', false,
         get_class($e).': '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
