@@ -468,8 +468,30 @@ cuenta, con los MISMOS servicios y pantallas que la familia. Para no duplicar:
   que verifican que el alumno se pega al portal `/alumno`. Las suites de la familia
   y la de lectura del alumno siguen verdes; auditoría del demo sin cambios (69).
 
-Lo que podría venir después: portar más flujos de otras facetas (el docente ya
-tiene lectura + pasar lista + capturar calificaciones), cada uno con su rebanada.
+### Rebanada — Tutor educativo ✅
+
+La cuarta faceta con portal en la app. **Servidor**: toda la regla salió de
+`TutoriaController` a `App\Services\ControlEscolar\SeguimientoDeTutorados` (la web
+delega): el panorama de tutorados con sus métricas —días sin sesión, «sin ver»
+(>60 días o nunca), «en riesgo» (6–8 sin reprobadas)—, la ficha con la bitácora,
+anotar una sesión, corregir la marca de confidencial (sólo su autor, sólo esa
+tutoría) y el rastro de consulta al abrir la bitácora. El alcance sale del
+VÍNCULO en `tutorias`, no del permiso ni de la URL. Ve lo ACADÉMICO, no lo
+financiero. Cuatro endpoints bajo `api.faceta:tutor_educativo` +
+`can:ver-mis-tutorados`: `GET tutor/tutorados`, `GET tutor/tutorados/{alumno}`
+(un alumno ajeno → 403), `POST …/sesiones` (no a futuro) y `PATCH
+…/sesiones/{s}/confidencial` (una sesión de otra tutoría → 403). **Flutter**:
+`PanelTutor` (tutorados ordenados por quién necesita atención, con el resumen y
+la insignia de cada uno) y `PantallaTutorado` (lo académico, la bitácora,
+«Registrar sesión» en una hoja, corregir la marca por sesión con el candado, y
+quién ha abierto la bitácora); `esTutorEducativo` enruta a su portal. Pruebas:
+`prueba-api-tutor.php` (12 verif, tres mutaciones —el candado del vínculo, el
+guard de la marca ajena y el `finanzas:false`—, con la tutoría construida en la
+transacción, ya que el demo no tiene ninguna) + humo por HTTP (las rutas y el
+401 en JSON) + 6 Flutter.
+
+Lo que queda: la faceta **aspirante** (`/mi-solicitud`), que arrastra el
+subsistema de formularios dinámicos.
 
 ## Reglas transversales
 
