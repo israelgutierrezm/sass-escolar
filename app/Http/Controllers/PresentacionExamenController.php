@@ -272,7 +272,7 @@ class PresentacionExamenController extends Controller
             $this->aplicador->guardarRespuesta($intento, (int) $datos['reactivo_id'], [
                 'ruta' => $ruta,
                 'nombre' => $subido->getClientOriginalName(),
-            ]);
+            ], esArchivo: true);
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }

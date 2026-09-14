@@ -58,10 +58,22 @@ class ArchivoRespuestaController extends Controller
         // si no existiera, sin decir qué clase de reactivo es.
         abort_if(! is_array($archivo) || blank($archivo['ruta'] ?? null), 404);
 
-        abort_unless(Storage::disk('local')->exists($archivo['ruta']), 404);
+        $ruta = (string) $archivo['ruta'];
+
+        // El archivo servido tiene que vivir en la carpeta de ESTE intento. Sin
+        // esto, una respuesta con una `ruta` fabricada por el cliente —el endpoint
+        // de guardar acepta cualquier `valor`— haría que esta descarga entregara
+        // cualquier archivo del disco privado del tenant (comprobantes de pago,
+        // XML de títulos, la entrega de otro alumno). La subida legítima siempre
+        // guarda en `examenes/{intento}/…`, así que quien envenene su propia
+        // respuesta sólo puede apuntar, como mucho, a lo que él mismo subió.
+        $carpeta = "examenes/{$intento->id}/";
+        abort_unless(str_starts_with($ruta, $carpeta) && ! str_contains($ruta, '..'), 404);
+
+        abort_unless(Storage::disk('local')->exists($ruta), 404);
 
         return Storage::disk('local')->download(
-            $archivo['ruta'],
+            $ruta,
             $archivo['nombre'] ?? 'respuesta',
         );
     }

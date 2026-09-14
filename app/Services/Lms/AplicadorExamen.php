@@ -124,7 +124,7 @@ class AplicadorExamen
      * caída de red no le borren el examen. Calificar aquí sería revelar el
      * resultado antes de tiempo.
      */
-    public function guardarRespuesta(Intento $intento, int $reactivoId, mixed $valor): Respuesta
+    public function guardarRespuesta(Intento $intento, int $reactivoId, mixed $valor, bool $esArchivo = false): Respuesta
     {
         if ($intento->entregado()) {
             throw new RuntimeException('Este intento ya fue entregado.');
@@ -132,6 +132,19 @@ class AplicadorExamen
 
         if (! in_array($reactivoId, $intento->orden_reactivos ?? [], true)) {
             throw new RuntimeException('Ese reactivo no forma parte de este examen.');
+        }
+
+        /*
+         * Un reactivo de tipo archivo SÓLO se responde subiendo el archivo
+         * (`responderArchivo`), que guarda una `ruta` que pone el servidor. Por
+         * la vía genérica el `valor` es lo que mande el cliente: si aceptara aquí
+         * una respuesta de archivo, quien contesta podría fijar una `ruta`
+         * arbitraria que la descarga luego sirve —lo que abría la puerta a leer
+         * cualquier archivo del disco privado del tenant—. La descarga además se
+         * acota a la carpeta del intento, pero esto lo corta en el origen.
+         */
+        if (! $esArchivo && Reactivo::find($reactivoId)?->tipo->formaDeRespuesta() === 'archivo') {
+            throw new RuntimeException('Ese reactivo se responde subiendo un archivo.');
         }
 
         return Respuesta::updateOrCreate(

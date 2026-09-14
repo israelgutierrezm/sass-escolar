@@ -421,7 +421,7 @@ class AlumnoApiController extends Controller
         $ruta = $subido->store("examenes/{$intento->id}", 'local');
 
         try {
-            $this->examenes->guardarRespuesta($intento, (int) $datos['reactivo_id'], ['ruta' => $ruta, 'nombre' => $subido->getClientOriginalName()]);
+            $this->examenes->guardarRespuesta($intento, (int) $datos['reactivo_id'], ['ruta' => $ruta, 'nombre' => $subido->getClientOriginalName()], esArchivo: true);
         } catch (\RuntimeException $e) {
             AvisoParaElUsuario::lanzar(422, $e->getMessage());
         }
