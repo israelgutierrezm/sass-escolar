@@ -346,6 +346,64 @@ class AplicadorExamen
     }
 
     /**
+     * Los intentos entregados de un examen para que el docente los revise, con lo
+     * que espera calificación a mano ARRIBA: la pantalla sirve para revisar, no
+     * para consultar historial.
+     *
+     * Cada intento trae sus `pendientes` —las respuestas que la máquina no pudo
+     * calificar (`puntos` en null): abiertas y de archivo—, con lo que el alumno
+     * contestó y el tope de puntos del reactivo, que es lo único que hace falta
+     * para ponerle nota.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function intentosParaRevisar(Examen $examen): array
+    {
+        return Intento::query()
+            ->with([
+                'inscripcion.matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',
+                'respuestas.reactivo',
+            ])
+            ->where('examen_id', $examen->id)
+            ->whereNotNull('entregado_en')
+            ->orderByDesc('requiere_revision')
+            ->orderByDesc('entregado_en')
+            ->get()
+            ->map(function (Intento $intento) use ($examen) {
+                $persona = $intento->inscripcion?->matriculaOferta?->persona;
+
+                return [
+                    'id' => $intento->id,
+                    'numero' => $intento->numero,
+                    'alumno' => trim(implode(' ', array_filter([
+                        $persona?->nombre,
+                        $persona?->primer_apellido,
+                        $persona?->segundo_apellido,
+                    ]))) ?: 'Alumno',
+                    'entregado_en' => $intento->entregado_en?->toDateTimeString(),
+                    'puntos_obtenidos' => (float) $intento->puntos_obtenidos,
+                    'puntos_posibles' => (float) $intento->puntos_posibles,
+                    'requiere_revision' => (bool) $intento->requiere_revision,
+                    // Se cuentan aunque el examen las permitiera: el docente
+                    // sigue queriendo saber quién fotografió su examen.
+                    'capturas' => (int) $intento->capturas_detectadas,
+                    'primera_captura' => $intento->capturas[0]['en'] ?? null,
+                    // Sólo lo que espera al docente: lo autocalificado no se revisa.
+                    'pendientes' => $intento->respuestas
+                        ->filter(fn (Respuesta $r) => $r->puntos === null)
+                        ->map(fn (Respuesta $r) => [
+                            'id' => $r->id,
+                            'enunciado' => $r->reactivo?->enunciado,
+                            'respondio' => $r->valor['v'] ?? null,
+                            'tope' => $examen->puntosDe($r->reactivo),
+                        ])->values()->all(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
      * El docente pone los puntos de un reactivo abierto; si ya no queda ninguno
      * pendiente, el examen se cierra y la nota entra sola.
      */

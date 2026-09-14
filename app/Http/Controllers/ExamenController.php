@@ -8,8 +8,6 @@ use App\Http\Controllers\Concerns\ArmaExamenes;
 use App\Http\Controllers\Concerns\AutorizaMateriaPropia;
 use App\Models\ControlEscolar\AsignaturaGrupo;
 use App\Models\Lms\Actividad;
-use App\Models\Lms\Examen;
-use App\Models\Lms\Intento;
 use App\Models\Lms\Reactivo;
 use App\Models\Lms\Respuesta;
 use App\Services\Lms\AplicadorExamen;
@@ -48,7 +46,7 @@ class ExamenController extends Controller
                 'href' => "/docencia/materias/{$asignaturaGrupo->id}",
                 'texto' => $asignaturaGrupo->planMateria?->asignatura?->nombre ?? 'Materia',
             ],
-            'intentos' => $this->intentosDelExamen($this->examenDe($actividad)),
+            'intentos' => $this->aplicador->intentosParaRevisar($this->examenDe($actividad)),
             'ruta_calificar' => "/docencia/materias/{$asignaturaGrupo->id}/respuestas",
         ]);
     }
@@ -107,62 +105,6 @@ class ExamenController extends Controller
         $this->aplicador->calificarAMano($respuesta, (float) $datos['puntos'], $datos['comentario'] ?? null);
 
         return back()->with('exito', 'Respuesta calificada.');
-    }
-
-    /**
-     * Los intentos entregados, con lo que falta por revisar arriba: la pantalla
-     * sirve para revisar, no para consultar historial.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function intentosDelExamen(Examen $examen): array
-    {
-        return Intento::query()
-            ->with([
-                'inscripcion.matriculaOferta.persona:id,nombre,primer_apellido,segundo_apellido',
-                'respuestas.reactivo',
-            ])
-            ->where('examen_id', $examen->id)
-            ->whereNotNull('entregado_en')
-            ->orderByDesc('requiere_revision')
-            ->orderByDesc('entregado_en')
-            ->get()
-            ->map(function (Intento $intento) use ($examen) {
-                $persona = $intento->inscripcion?->matriculaOferta?->persona;
-
-                return [
-                    'id' => $intento->id,
-                    'numero' => $intento->numero,
-                    'alumno' => trim(implode(' ', array_filter([
-                        $persona?->nombre,
-                        $persona?->primer_apellido,
-                        $persona?->segundo_apellido,
-                    ]))) ?: 'Alumno',
-                    'entregado_en' => $intento->entregado_en?->toDateTimeString(),
-                    'puntos_obtenidos' => (float) $intento->puntos_obtenidos,
-                    'puntos_posibles' => (float) $intento->puntos_posibles,
-                    'requiere_revision' => (bool) $intento->requiere_revision,
-                    /*
-                     * Las capturas se cuentan aunque el examen las permita: que
-                     * estuvieran permitidas no vuelve el dato inútil —el docente
-                     * sigue queriendo saber quién fotografió su examen—, y que
-                     * estuvieran prohibidas es cuando más importa.
-                     */
-                    'capturas' => (int) $intento->capturas_detectadas,
-                    'primera_captura' => $intento->capturas[0]['en'] ?? null,
-                    // Solo lo que espera al docente: lo autocalificado no se revisa.
-                    'pendientes' => $intento->respuestas
-                        ->filter(fn (Respuesta $r) => $r->puntos === null)
-                        ->map(fn (Respuesta $r) => [
-                            'id' => $r->id,
-                            'enunciado' => $r->reactivo?->enunciado,
-                            'respondio' => $r->valor['v'] ?? null,
-                            'tope' => $examen->puntosDe($r->reactivo),
-                        ])->values(),
-                ];
-            })
-            ->values()
-            ->all();
     }
 
     /** La materia tiene que ser suya, y la actividad tiene que ser de ella. */
