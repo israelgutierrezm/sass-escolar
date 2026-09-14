@@ -2492,9 +2492,11 @@ Route::middleware([
 
         // Buscar una MATRÍCULA para registrarle disciplina. Permiso derivado
         // `gestionar-disciplina` (incidencias O sanciones); el docente no entra
-        // aquí —elige de sus alumnos, no del padrón—.
+        // aquí —elige de sus alumnos, no del padrón—. Bajo `modulo:disciplina`
+        // como el resto de la sección: apagado el módulo, este padrón —que
+        // devuelve nombre, matrícula y programa— tampoco se consulta.
         Route::get('buscar/matriculas', BuscadorMatriculasController::class)
-            ->middleware('can:gestionar-disciplina')
+            ->middleware(['modulo:disciplina', 'can:gestionar-disciplina'])
             ->name('tenant.buscar.matriculas');
 
         /*
@@ -3017,22 +3019,6 @@ Route::middleware([
                     Route::post('/', 'guardar')->name('guardar');
                 });
 
-            // Las citas del docente con las familias: sus horarios de atención y
-            // las solicitudes de sus alumnos. El alcance (que la cita sea suya) lo
-            // pone el servicio, no el permiso.
-            Route::controller(DocenciaCitasController::class)
-                ->prefix('docencia/citas')->name('tenant.docencia.citas.')
-                ->middleware('can:gestionar-mis-citas')
-                ->group(function () {
-                    Route::get('/', 'index')->name('index');
-                    Route::post('disponibilidad', 'guardarDisponibilidad')->name('disponibilidad.guardar');
-                    Route::delete('disponibilidad/{disponibilidad}', 'eliminarDisponibilidad')->whereNumber('disponibilidad')->name('disponibilidad.eliminar');
-                    Route::post('{cita}/confirmar', 'confirmar')->whereNumber('cita')->name('confirmar');
-                    Route::post('{cita}/rechazar', 'rechazar')->whereNumber('cita')->name('rechazar');
-                    Route::post('{cita}/cancelar', 'cancelar')->whereNumber('cita')->name('cancelar');
-                    Route::post('{cita}/marcar', 'marcar')->whereNumber('cita')->name('marcar');
-                });
-
             // Los catálogos de conducta (tipos de incidencia y de sanción).
             // Gateados por el derivado `gestionar-disciplina` (incidencias O
             // sanciones): quien administra la conducta configura sus tipos.
@@ -3047,6 +3033,24 @@ Route::middleware([
                     Route::patch('{catalogo}/{item}/activo', 'alternar')->whereIn('catalogo', ['incidencia', 'sancion'])->whereNumber('item')->name('activo');
                 });
         });
+
+        // Las citas del docente con las familias: sus horarios de atención y las
+        // solicitudes de sus alumnos. NO es parte de disciplina —vive FUERA de su
+        // módulo—: apagar disciplina no puede tumbar la agenda del docente, y su
+        // entrada de menú tampoco declara módulo. El alcance (que la cita sea
+        // suya) lo pone el servicio, no el permiso.
+        Route::controller(DocenciaCitasController::class)
+            ->prefix('docencia/citas')->name('tenant.docencia.citas.')
+            ->middleware('can:gestionar-mis-citas')
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('disponibilidad', 'guardarDisponibilidad')->name('disponibilidad.guardar');
+                Route::delete('disponibilidad/{disponibilidad}', 'eliminarDisponibilidad')->whereNumber('disponibilidad')->name('disponibilidad.eliminar');
+                Route::post('{cita}/confirmar', 'confirmar')->whereNumber('cita')->name('confirmar');
+                Route::post('{cita}/rechazar', 'rechazar')->whereNumber('cita')->name('rechazar');
+                Route::post('{cita}/cancelar', 'cancelar')->whereNumber('cita')->name('cancelar');
+                Route::post('{cita}/marcar', 'marcar')->whereNumber('cita')->name('marcar');
+            });
 
         Route::controller(RubricaController::class)
             ->prefix('rubricas')->name('tenant.rubricas.')
