@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AccesoApiController;
 use App\Http\Controllers\Api\AlumnoApiController;
 use App\Http\Controllers\Api\DocenteApiController;
 use App\Http\Controllers\Api\PadreApiController;
+use App\Http\Controllers\Api\TutorApiController;
 use App\Http\Controllers\Api\AvisosApiController;
 use App\Http\Controllers\ActividadAspiranteController;
 use App\Http\Controllers\ActividadController;
@@ -4209,6 +4210,24 @@ Route::middleware([
                 Route::post('citas/{cita}/cancelar', [DocenteApiController::class, 'cancelarCita'])->whereNumber('cita')->name('citas.cancelar');
                 Route::post('citas/{cita}/marcar', [DocenteApiController::class, 'marcarCita'])->whereNumber('cita')->name('citas.marcar');
             });
+        });
+
+        /*
+         * Portal del TUTOR EDUCATIVO. `api.faceta:tutor_educativo` fija el rol
+         * activo; a quiénes acompaña lo decide el VÍNCULO en `tutorias`, dentro
+         * del controlador (un alumno ajeno → 403). Ve lo académico, no lo
+         * financiero. Todo sale de `SeguimientoDeTutorados`, el mismo servicio
+         * que la web.
+         */
+        Route::middleware('api.faceta:tutor_educativo')->prefix('tutor')->name('tutor.')->group(function () {
+            Route::get('tutorados', [TutorApiController::class, 'misTutorados'])
+                ->middleware('can:ver-mis-tutorados')->name('tutorados');
+            Route::get('tutorados/{alumno}', [TutorApiController::class, 'tutorado'])
+                ->whereNumber('alumno')->middleware('can:ver-mis-tutorados')->name('tutorado');
+            Route::post('tutorados/{alumno}/sesiones', [TutorApiController::class, 'registrarSesion'])
+                ->whereNumber('alumno')->middleware('can:ver-mis-tutorados')->name('sesiones');
+            Route::patch('tutorados/{alumno}/sesiones/{sesion}/confidencial', [TutorApiController::class, 'marcarConfidencial'])
+                ->whereNumber(['alumno', 'sesion'])->middleware('can:ver-mis-tutorados')->name('sesiones.confidencial');
         });
     });
 });
