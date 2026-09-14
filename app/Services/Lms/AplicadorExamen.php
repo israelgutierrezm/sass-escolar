@@ -283,9 +283,10 @@ class AplicadorExamen
 
         $intento->update(['entrega_id' => $entrega->id]);
 
-        if (! $pendiente) {
-            $this->componentes->tras($entrega->fresh());
-        }
+        // Se recalcula SIEMPRE, no sólo al calificar. Un reintento que queda
+        // pendiente deja la entrega sin nota, y el componente del parcial tiene
+        // que dejar de contar la del intento anterior en vez de conservarla.
+        $this->componentes->tras($entrega->fresh());
     }
 
     /**
@@ -423,7 +424,12 @@ class AplicadorExamen
     public function calificarAMano(Respuesta $respuesta, float $puntos, ?string $comentario = null): Intento
     {
         return DB::transaction(function () use ($respuesta, $puntos, $comentario) {
-            $intento = $respuesta->intento;
+            // Se bloquea el intento: dos docentes calificando a la vez DISTINTAS
+            // respuestas abiertas del mismo intento leerían cada uno el conjunto
+            // sin la escritura del otro, y el último en cerrar dejaría
+            // `puntos_obtenidos` y `requiere_revision` calculados sobre datos
+            // viejos —una nota que omite lo que el otro acaba de poner—.
+            $intento = Intento::query()->whereKey($respuesta->intento_id)->lockForUpdate()->firstOrFail();
             $examen = $intento->examen;
             $tope = $examen->puntosDe($respuesta->reactivo);
 

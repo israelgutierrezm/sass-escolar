@@ -31,6 +31,7 @@ class EntregaDeActividad
     public function __construct(
         private readonly Prerequisitos $prerequisitos,
         private readonly CalificadorPorRubrica $rubrica,
+        private readonly CalculadorComponente $componentes,
     ) {}
 
     /**
@@ -92,6 +93,13 @@ class EntregaDeActividad
 
         // El desglose de la rúbrica explicaba un trabajo que ya no está.
         $this->rubrica->olvidar($entrega);
+
+        // La calificación de esta entrega acaba de quedar en null; el componente
+        // del parcial está MATERIALIZADO, así que hay que recalcularlo o el acta
+        // seguiría mostrando la nota del trabajo que se reemplazó. `tras` lo
+        // recompone con lo que sí sigue calificado —y retira la fila si ya no
+        // queda nada—, respetando lo que un docente haya fijado a mano.
+        $this->componentes->tras($entrega);
 
         foreach ($archivos as $archivo) {
             $ruta = $archivo->store("entregas/{$entrega->id}", 'local');
