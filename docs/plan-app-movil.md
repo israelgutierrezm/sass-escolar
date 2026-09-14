@@ -490,8 +490,51 @@ guard de la marca ajena y el `finanzas:false`—, con la tutoría construida en 
 transacción, ya que el demo no tiene ninguna) + humo por HTTP (las rutas y el
 401 en JSON) + 6 Flutter.
 
-Lo que queda: la faceta **aspirante** (`/mi-solicitud`), que arrastra el
-subsistema de formularios dinámicos.
+### Rebanada — Aspirante ✅
+
+La quinta y última faceta con portal, en dos partes porque arrastra el subsistema
+de formularios dinámicos.
+
+**Servidor A — autoservicio de la solicitud.** La regla del portal
+`/mi-solicitud` salió de `PortalAspiranteController` a
+`App\Services\Admisiones\AutoservicioSolicitud` (la web delega): el panorama
+—avance de los cuatro pasos (que sigue calculando `ProgresoSolicitud`), datos,
+documentos con su estado, cargos con saldo y formularios—, guardar datos, y subir
+un documento del expediente. La escuela se resuelve por dominio + token, y de la
+persona sale de la sesión: no hay id en la URL, así que no se puede pedir la
+solicitud de otro.
+
+**Servidor B — formularios dinámicos.** La captura de un formulario salió de
+`RespuestaFormularioController` a `App\Services\Formularios\CapturaDeFormulario`
+(la web delega): la ficha con sus campos y lo ya contestado, la validación
+—reglas, mensajes y atributos derivados del TIPO de cada campo—, la visibilidad
+condicional (`campo_padre_id` + `condicional`, que el servidor VUELVE a mirar: la
+pantalla esconde, el servidor exige) y el guardado (multipart para los campos
+tipo documento). `exigirLeToca` cierra que el formulario sea del aspirante.
+
+Endpoints bajo `api.faceta:aspirante`: `GET aspirante/solicitud`, `PUT
+aspirante/datos`, `POST aspirante/documentos`, `GET
+aspirante/formularios/{formulario}` y `POST aspirante/formularios/{formulario}`
+(una solicitud o un formulario ajeno → 403). Pruebas:
+`prueba-api-aspirante.php` y `prueba-api-aspirante-formularios.php`, con el
+escenario construido en la transacción y humo por HTTP (rutas y 401 en JSON). Las
+suites de la web (`prueba-portal-aspirante`, `prueba-formularios`,
+`prueba-formulario-publico`) siguen verdes: la extracción no fue regresiva.
+
+**Flutter.** `PanelAspirante` (el panorama: avance, datos con «Editar»,
+documentos con su estado y el motivo de un rechazo, cargos con saldo, y los
+formularios), `PantallaEditarDatos` (los datos, con género y oferta de interés) y
+`PantallaFormularioAspirante` (recorre los campos y elige el control por su tipo;
+un hijo condicional aparece al elegir el valor que lo dispara). Modelos tipados en
+`core/modelos_aspirante.dart`, providers `FutureProvider` autoDispose,
+`esAspirante` enruta a su portal. Pruebas: `test/aspirante_test.dart`, 6 de widget
+—parseo del panorama, enrutado por faceta, el panel completo, editar y mandar los
+datos, el campo condicional que aparece y guarda, y el documento rechazado con su
+motivo—; suite Flutter completa 124 verde, `flutter analyze` limpio, `flutter
+build web` compila.
+
+Con esto, las cinco facetas con portal —alumno, familia, docente, tutor educativo
+y aspirante— están en la app.
 
 ## Reglas transversales
 
