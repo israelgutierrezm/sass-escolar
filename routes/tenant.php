@@ -4244,6 +4244,15 @@ Route::middleware([
                 ->middleware('can:llenar-mi-solicitud')->name('datos');
             Route::post('documentos', [AspiranteApiController::class, 'subirDocumento'])
                 ->middleware('can:llenar-mi-solicitud')->name('documentos');
+
+            // Formularios dinámicos: los campos con su condición, y guardar las
+            // respuestas (multipart para los campos de tipo documento). La regla
+            // vive en CapturaDeFormulario, compartida con la web; uno que no le
+            // toca → 404.
+            Route::get('formularios/{formulario}', [AspiranteApiController::class, 'formulario'])
+                ->whereNumber('formulario')->middleware('can:llenar-mi-solicitud')->name('formulario');
+            Route::post('formularios/{formulario}', [AspiranteApiController::class, 'guardarFormulario'])
+                ->whereNumber('formulario')->middleware('can:llenar-mi-solicitud')->name('formulario.guardar');
         });
     });
 });

@@ -6,7 +6,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\ResuelveMiSolicitud;
 use App\Http\Controllers\Controller;
+use App\Models\Formularios\Formulario;
 use App\Services\Admisiones\AutoservicioSolicitud;
+use App\Services\Formularios\CapturaDeFormulario;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -31,7 +33,10 @@ class AspiranteApiController extends Controller
 {
     use ResuelveMiSolicitud;
 
-    public function __construct(private readonly AutoservicioSolicitud $autoservicio) {}
+    public function __construct(
+        private readonly AutoservicioSolicitud $autoservicio,
+        private readonly CapturaDeFormulario $captura,
+    ) {}
 
     /** El panorama de la solicitud: avance, datos, documentos, cargos y formularios. */
     public function solicitud(Request $peticion): JsonResponse
@@ -68,6 +73,26 @@ class AspiranteApiController extends Controller
         ]);
 
         $this->autoservicio->subirDocumento($aspirante, (int) $datos['documento_id'], $peticion->file('archivo'));
+
+        return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Un formulario dinámico para contestarlo: sus campos (con su tipo y la
+     * condición que los muestra) y lo ya contestado. Uno que no le toca → 404.
+     */
+    public function formulario(Request $peticion, Formulario $formulario): JsonResponse
+    {
+        return response()->json($this->captura->ficha($this->miSolicitud($peticion), $formulario));
+    }
+
+    /**
+     * Guarda las respuestas del formulario (multipart: los campos de tipo
+     * documento van como archivo). La validación es la que arma cada campo.
+     */
+    public function guardarFormulario(Request $peticion, Formulario $formulario): JsonResponse
+    {
+        $this->captura->guardar($peticion, $this->miSolicitud($peticion), $formulario);
 
         return response()->json(['ok' => true]);
     }
