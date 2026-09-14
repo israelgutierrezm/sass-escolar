@@ -6,6 +6,7 @@ use App\Http\Controllers\Academico\CargaMasivaController;
 use App\Http\Controllers\AccesosController;
 use App\Http\Controllers\Api\AccesoApiController;
 use App\Http\Controllers\Api\AlumnoApiController;
+use App\Http\Controllers\Api\AspiranteApiController;
 use App\Http\Controllers\Api\DocenteApiController;
 use App\Http\Controllers\Api\PadreApiController;
 use App\Http\Controllers\Api\TutorApiController;
@@ -4228,6 +4229,21 @@ Route::middleware([
                 ->whereNumber('alumno')->middleware('can:ver-mis-tutorados')->name('sesiones');
             Route::patch('tutorados/{alumno}/sesiones/{sesion}/confidencial', [TutorApiController::class, 'marcarConfidencial'])
                 ->whereNumber(['alumno', 'sesion'])->middleware('can:ver-mis-tutorados')->name('sesiones.confidencial');
+        });
+
+        /*
+         * Portal del ASPIRANTE. `api.faceta:aspirante` fija el rol activo; la
+         * solicitud es la de la persona autenticada (`ResuelveMiSolicitud`), no
+         * un id de la URL. Todo sale de `AutoservicioSolicitud`, el mismo
+         * servicio que la web.
+         */
+        Route::middleware('api.faceta:aspirante')->prefix('aspirante')->name('aspirante.')->group(function () {
+            Route::get('solicitud', [AspiranteApiController::class, 'solicitud'])
+                ->middleware('can:llenar-mi-solicitud')->name('solicitud');
+            Route::put('datos', [AspiranteApiController::class, 'guardarDatos'])
+                ->middleware('can:llenar-mi-solicitud')->name('datos');
+            Route::post('documentos', [AspiranteApiController::class, 'subirDocumento'])
+                ->middleware('can:llenar-mi-solicitud')->name('documentos');
         });
     });
 });
