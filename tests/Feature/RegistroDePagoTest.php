@@ -9,6 +9,7 @@ use App\Models\Admisiones\MatriculaOferta;
 use App\Models\Finanzas\Adeudo;
 use App\Models\Finanzas\MetodoPago;
 use App\Models\Finanzas\Pago;
+use App\Models\Identidad\Usuario;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
@@ -31,11 +32,19 @@ class RegistroDePagoTest extends TenantTestCase
 
     private FinanzasController $controlador;
 
+    private Usuario $staff;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->controlador = app(FinanzasController::class);
+
+        // El cobro es una ruta autenticada de personal: en producción el
+        // middleware garantiza el usuario que el candado de campus consulta.
+        // Global (sin campus), que es lo que este test sobre la aplicación de
+        // cargos necesita.
+        $this->staff = $this->usuarioConAlcance();
 
         Session::start();
     }
@@ -104,6 +113,7 @@ class RegistroDePagoTest extends TenantTestCase
             // Tal cual lo manda el formulario: la lista siempre viaja.
             'adeudo_ids' => $adeudoIds,
         ]);
+        $peticion->setUserResolver(fn () => $this->staff);
 
         $this->controlador->registrarPago($peticion, MatriculaOferta::findOrFail($matricula));
     }
