@@ -312,9 +312,38 @@ Sobre los portales de lectura, los flujos de escritura, uno por rebanada.
   temas construidos en la transacción) + humo por HTTP (las cuatro rutas y el 401
   en JSON) + 10 Flutter.
 
-**Con esto el LMS queda COMPLETO en la app del alumno** —materias, aula (entregar y
-marcar lecturas), exámenes (los doce tipos de reactivo) y foros—, además de
-historial, estado de cuenta con factura y pago en línea, avisos y expediente.
+- **Aula: cerrar el LMS del docente** (docente) ✅. El lado docente de lo que ya
+  hace el alumno: calificar a mano los exámenes que lo piden y moderar los foros.
+  **Servidor**: `intentosDelExamen` (los intentos entregados de un examen, con lo
+  que espera revisión arriba y las respuestas pendientes de cada uno) salió de
+  `ExamenController` a `AplicadorExamen::intentosParaRevisar`; calificar reusa
+  `calificarAMano` y moderar/borrar reusan `ForoDeActividad` con `moderador: true`
+  —lo que ya existía—. Siete endpoints bajo `api.faceta:docente`: `GET
+  materias/{ag}/examenes/{a}/intentos` y `PUT respuestas/{r}/calificar` (puntos a
+  una respuesta abierta/archivo; el intento se cierra solo cuando ya no queda
+  pendiente) con `can:capturar-calificaciones`; y el foro —`GET
+  materias/{ag}/foro/{a}`, `POST …/temas`, `…/temas/{t}/responder`,
+  `…/temas/{t}/moderar` (fijar/cerrar) y `DELETE …/temas/{t}`— con
+  `can:ver-mis-materias`. El alcance es por ASIGNACIÓN (`autorizarMateria` /
+  `autorizarForo`): una materia ajena → 403, una respuesta de un examen ajeno →
+  403; ser docente de la materia da la moderación. **Flutter**:
+  `PantallaCalificarExamen` (los intentos, con lo que espera revisión expandido;
+  calificar cada pendiente con puntos + comentario; las capturas detectadas) y
+  `PantallaForoDocente`/`PantallaTemaDocente` (leer, participar y moderar
+  —fijar/cerrar/borrar cualquier tema— desde el menú de la barra). El aula del
+  docente enruta por tipo: un examen abre la de calificar, un foro la de moderar,
+  lo demás sigue con la calificación directa. Pruebas:
+  `prueba-api-docente-lms.php` (12 verif, tres mutaciones —el guard de la
+  respuesta ajena, el `moderador:true` del borrado y la bandera de moderador—,
+  con el examen presentado y el foro construidos en la transacción) + humo por
+  HTTP (las cinco rutas y el 401 en JSON) + 6 Flutter.
+
+**Con esto el LMS queda COMPLETO en la app, del lado del ALUMNO y del DOCENTE**:
+el alumno tiene materias, aula (entregar y marcar lecturas), exámenes (los doce
+tipos de reactivo) y foros —además de historial, estado de cuenta con factura y
+pago en línea, avisos y expediente—; y el docente califica entregas y exámenes
+(a mano lo que la máquina no puede) y modera los foros, sobre lo que ya tenía
+(materias, pasar lista, capturar calificaciones, expediente, citas y avisos).
 
 - **Confirmar autorizaciones** (familia) ✅. La lectura y las dos escrituras
   salen a un servicio compartido `App\Services\Familia\RespuestaAutorizacion`
